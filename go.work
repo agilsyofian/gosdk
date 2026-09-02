@@ -16,6 +16,7 @@ use (
 	./security/session/memory
 	./security/session/redis
 	./storage/cache
+	./storage/cache/local
 	./storage/cache/redis
 	./storage/database
 	./storage/database/mysql
