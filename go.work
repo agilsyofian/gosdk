@@ -1,0 +1,32 @@
+go 1.26.4
+
+use (
+	./errors
+	./examples
+	./messaging/kafka
+	./messaging/rabbitmq
+	./observability/health
+	./observability/logger
+	./observability/tracing
+	./resilience
+	./security
+	./security/authenticator/apikey
+	./security/authenticator/basicauth
+	./security/authenticator/jwt
+	./security/session/memory
+	./security/session/redis
+	./storage/cache
+	./storage/cache/redis
+	./storage/database
+	./storage/database/mysql
+	./storage/database/oracle
+	./storage/database/postgres
+	./tools/dbmigration
+	./transport/client/grpc
+	./transport/client/http
+	./transport/server/grpc
+	./transport/server/http
+	./utils
+	./utils/mapgen
+	./utils/mapgen/examples
+)
