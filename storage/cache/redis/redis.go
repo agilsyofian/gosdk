@@ -18,6 +18,7 @@ import (
 var _ cache.Cache = (*Cache)(nil)
 
 // Cache is a Cache implementation using Redis.
+// It supports standalone, cluster, and sentinel topologies via redis.UniversalClient.
 type Cache struct {
 	client  redis.UniversalClient
 	logger  logger.Logger
@@ -25,21 +26,22 @@ type Cache struct {
 }
 
 // NewRedisCache creates a new instance of RedisCache.
+// The topology (standalone / cluster / sentinel) is selected automatically from Config.Type:
+//   - standalone: single node, uses Config.DB
+//   - cluster:    multi-node sharding, uses Config.MaxRedirects / routing options
+//   - sentinel:   HA failover, requires Config.MasterName
 func NewRedisCache(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 ) (*Cache, error) {
 
+	cfg = mergeConfig(DefaultConfig(), cfg)
+
 	ctx := context.Background()
 	appName := coreContext.AppName(ctx)
 
-	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    cfg.Addrs,
-		Username: cfg.Username,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
+	client := redis.NewUniversalClient(buildUniversalOptions(cfg))
 
 	// Add hooks for tracing and logging
 	client.AddHook(NewHook(l, cfg, appName))
@@ -51,13 +53,14 @@ func NewRedisCache(
 
 			if err := client.Ping(pingCtx).Err(); err != nil {
 				client.Close()
-				return fmt.Errorf("ping redis: %w", err)
+				return fmt.Errorf("ping redis (%s): %w", cfg.Type, err)
 			}
 
 			l.Info(ctx, "redis connection established", logger.LogPayload{
 				Type:      "STORAGE_REDIS",
 				Method:    "START",
 				IpAddress: fmt.Sprintf("%v", cfg.Addrs),
+				AppName:   appName,
 			})
 			return nil
 		},
@@ -75,6 +78,118 @@ func NewRedisCache(
 		logger:  l,
 		appName: appName,
 	}, nil
+}
+
+// mergeConfig applies non-zero fields from override on top of base.
+// This lets callers pass a partial Config and still get sensible defaults
+// for any fields they did not explicitly set.
+func mergeConfig(base, override Config) Config {
+	if override.Type != "" {
+		base.Type = override.Type
+	}
+	if len(override.Addrs) > 0 {
+		base.Addrs = override.Addrs
+	}
+	if override.MasterName != "" {
+		base.MasterName = override.MasterName
+	}
+	if override.Username != "" {
+		base.Username = override.Username
+	}
+	if override.Password != "" {
+		base.Password = override.Password
+	}
+	if override.DB != 0 {
+		base.DB = override.DB
+	}
+	if override.PoolSize != 0 {
+		base.PoolSize = override.PoolSize
+	}
+	if override.MinIdleConns != 0 {
+		base.MinIdleConns = override.MinIdleConns
+	}
+	if override.DialTimeout != 0 {
+		base.DialTimeout = override.DialTimeout
+	}
+	if override.ReadTimeout != 0 {
+		base.ReadTimeout = override.ReadTimeout
+	}
+	if override.WriteTimeout != 0 {
+		base.WriteTimeout = override.WriteTimeout
+	}
+	if override.MaxRetries != 0 {
+		base.MaxRetries = override.MaxRetries
+	}
+	if override.MinRetryBackoff != 0 {
+		base.MinRetryBackoff = override.MinRetryBackoff
+	}
+	if override.MaxRetryBackoff != 0 {
+		base.MaxRetryBackoff = override.MaxRetryBackoff
+	}
+	if override.MaxRedirects != 0 {
+		base.MaxRedirects = override.MaxRedirects
+	}
+	// boolean fields: only override if explicitly true
+	if override.RouteByLatency {
+		base.RouteByLatency = true
+	}
+	if override.RouteRandomly {
+		base.RouteRandomly = true
+	}
+	if override.ReadOnly {
+		base.ReadOnly = true
+	}
+	if override.Tracing.Enabled {
+		base.Tracing.Enabled = true
+	}
+	if override.Logger.Enabled {
+		base.Logger.Enabled = true
+	}
+	return base
+}
+
+// buildUniversalOptions maps Config fields to redis.UniversalOptions.
+// redis.NewUniversalClient will select the appropriate client type:
+//
+//	len(Addrs) > 1  && MasterName == ""  → ClusterClient
+//	MasterName != ""                      → SentinelClient (Failover)
+//	otherwise                             → single-node Client
+//
+// We enforce the same rule via Config.Type for explicitness.
+func buildUniversalOptions(cfg Config) *redis.UniversalOptions {
+	opts := &redis.UniversalOptions{
+		Addrs:    cfg.Addrs,
+		Username: cfg.Username,
+		Password: cfg.Password,
+
+		PoolSize:     cfg.PoolSize,
+		MinIdleConns: cfg.MinIdleConns,
+
+		DialTimeout:  cfg.DialTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+
+		MaxRetries:      cfg.MaxRetries,
+		MinRetryBackoff: cfg.MinRetryBackoff,
+		MaxRetryBackoff: cfg.MaxRetryBackoff,
+	}
+
+	switch cfg.Type {
+	case ModeStandalone:
+		opts.DB = cfg.DB
+
+	case ModeCluster:
+		opts.MaxRedirects = cfg.MaxRedirects
+		opts.RouteByLatency = cfg.RouteByLatency
+		opts.RouteRandomly = cfg.RouteRandomly
+		opts.ReadOnly = cfg.ReadOnly
+
+	case ModeSentinel:
+		opts.MasterName = cfg.MasterName
+		opts.DB = cfg.DB
+	}
+
+	return opts
 }
 
 // Get retrieves a value from redis.
@@ -124,6 +239,8 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// DeleteByPrefix removes all keys matching the given prefix using SCAN + DEL.
+// In cluster mode, SCAN is scoped per-shard automatically by UniversalClient.
 func (c *Cache) DeleteByPrefix(ctx context.Context, prefix string) error {
 	pattern := prefix + "*"
 
