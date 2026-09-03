@@ -30,4 +30,5 @@ use (
 	./utils
 	./utils/mapgen
 	./utils/mapgen/examples
+	tools/mapgen
 )
