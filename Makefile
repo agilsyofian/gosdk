@@ -23,7 +23,7 @@ vuln: ## Run govulncheck (see security.md section 7)
 	@command -v govulncheck >/dev/null 2>&1 && govulncheck $(PKG) || \
 		echo "govulncheck not installed locally — install it before pushing, see .github/instructions/security.md"
 
-tidy: ## Tidy go.mod / go.sum
-	$(GO) mod tidy
+tidy: ## Tidy workspace and module dependencies
+	$(GO) work sync
 
 check: lint test vuln ## Run everything required before considering a task complete (see AI_AGENT.md)
