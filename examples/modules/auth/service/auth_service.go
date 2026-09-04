@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
 	publisher2 "github.com/agilsyofian/gosdk/example/messaging/publisher"

@@ -3,7 +3,7 @@ package middleware
 import (
 	goError "errors"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/gin-gonic/gin"
 )
 

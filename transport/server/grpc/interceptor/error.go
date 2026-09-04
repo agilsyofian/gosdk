@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	coreContext "github.com/agilsyofian/gosdk/errors"
+	coreContext "github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/observability/tracing"
 	"go.opentelemetry.io/otel/trace"

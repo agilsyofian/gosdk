@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/example/modules/user/model"
 	"github.com/agilsyofian/gosdk/storage/database"
 	"github.com/lib/pq"

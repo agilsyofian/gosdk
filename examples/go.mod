@@ -5,7 +5,7 @@ go 1.26.4
 tool github.com/agilsyofian/utils/mapgen
 
 replace (
-	github.com/agilsyofian/gosdk/errors => ./../errors
+	github.com/agilsyofian/gosdk/core/errors => ./../core/errors
 	github.com/agilsyofian/gosdk/observability/health => ./../observability/health
 	github.com/agilsyofian/gosdk/observability/logger => ./../observability/logger
 	github.com/agilsyofian/gosdk/observability/tracing => ./../observability/tracing
@@ -22,10 +22,11 @@ replace (
 	github.com/agilsyofian/gosdk/transport/server/grpc => ./../transport/server/grpc
 	github.com/agilsyofian/gosdk/transport/server/http => ./../transport/server/http
 	github.com/agilsyofian/gosdk/utils => ./../utils
+	github.com/agilsyofian/gosdk/tools/mapgen => ./../tools/mapgen
 )
 
 require (
-	github.com/agilsyofian/gosdk/errors v0.0.1
+	github.com/agilsyofian/gosdk/core/errors v0.0.1
 	github.com/agilsyofian/gosdk/observability/health v0.0.1
 	github.com/agilsyofian/gosdk/observability/logger v0.0.1
 	github.com/agilsyofian/gosdk/observability/tracing v0.0.1
@@ -41,6 +42,7 @@ require (
 	github.com/agilsyofian/gosdk/transport/client/http v0.0.1
 	github.com/agilsyofian/gosdk/transport/server/grpc v0.0.1
 	github.com/agilsyofian/gosdk/transport/server/http v0.0.1
+	github.com/agilsyofian/gosdk/tools/mapgen v0.0.1
 	github.com/agilsyofian/gosdk/utils v0.0.1
 )
 

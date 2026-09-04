@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/modules/user/model"
 	"github.com/agilsyofian/gosdk/example/modules/user/repository"

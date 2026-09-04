@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/example/modules/auth/model"

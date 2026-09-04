@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	coreErr "github.com/agilsyofian/gosdk/errors"
+	coreErr "github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/storage/cache"
 )

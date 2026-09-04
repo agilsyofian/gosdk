@@ -3,7 +3,7 @@ module github.com/agilsyofian/gosdk/transport/server/http
 go 1.26.4
 
 replace (
-	github.com/agilsyofian/gosdk/errors => ./../../../errors
+	github.com/agilsyofian/gosdk/core/errors => ./../../../core/errors
 	github.com/agilsyofian/gosdk/observability/health => ./../../../observability/health
 	github.com/agilsyofian/gosdk/observability/logger => ./../../../observability/logger
 	github.com/agilsyofian/gosdk/observability/tracing => ./../../../observability/tracing
@@ -11,7 +11,7 @@ replace (
 )
 
 require (
-	github.com/agilsyofian/gosdk/errors v0.0.1
+	github.com/agilsyofian/gosdk/core/errors v0.0.1
 	github.com/agilsyofian/gosdk/observability/health v0.0.1
 	github.com/agilsyofian/gosdk/observability/logger v0.0.1
 	github.com/agilsyofian/gosdk/observability/tracing v0.0.1

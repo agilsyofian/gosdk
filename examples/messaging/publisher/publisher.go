@@ -3,7 +3,7 @@ package publisher
 import (
 	"context"
 
-	"github.com/agilsyofian/gosdk/errors"
+	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/messaging/kafka"
 )
 

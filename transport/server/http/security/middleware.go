@@ -3,7 +3,7 @@ package security
 import (
 	"errors"
 
-	coreErr "github.com/agilsyofian/gosdk/errors"
+	coreErr "github.com/agilsyofian/gosdk/core/errors"
 
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/gin-gonic/gin"

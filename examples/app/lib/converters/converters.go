@@ -5,7 +5,7 @@ package converters
 import (
 	"time"
 
-	"github.com/agilsyofian/utils/mapgen/runtime/mapper"
+	"github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 	"github.com/google/uuid"
 	"google.golang.org/genproto/googleapis/type/date"
 )
