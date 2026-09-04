@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -111,13 +110,13 @@ func (z *ZerologLogger) applyFields(ctx context.Context, event *zerolog.Event, p
 func (z *ZerologLogger) applyTracingFields(ctx context.Context, event *zerolog.Event, payload LogPayload) {
 	if payload.TraceId != "" {
 		event.Str("trace_id", payload.TraceId)
-	} else if traceID := coreContext.TraceID(ctx); traceID != "" {
+	} else if traceID := traceID(ctx); traceID != "" {
 		event.Str("trace_id", traceID)
 	}
 
 	if payload.SessionId != "" {
 		event.Str("session_id", payload.SessionId)
-	} else if requestID := coreContext.SessionID(ctx); requestID != "" {
+	} else if requestID := sessionID(ctx); requestID != "" {
 		event.Str("session_id", requestID)
 	}
 
@@ -284,4 +283,26 @@ func shouldFilter(key string, filterParams []string) bool {
 		}
 	}
 	return false
+}
+
+type contextKey string
+
+const (
+	appNameKey   contextKey = "app_name"
+	traceIDKey   contextKey = "trace_id"   // Long-lived session
+	sessionIDKey contextKey = "session_id" // Single lifecycle
+)
+
+func traceID(ctx context.Context) string {
+	if id, ok := ctx.Value(traceIDKey).(string); ok {
+		return id
+	}
+	return ""
+}
+
+func sessionID(ctx context.Context) string {
+	if id, ok := ctx.Value(sessionIDKey).(string); ok {
+		return id
+	}
+	return ""
 }

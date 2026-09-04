@@ -3,25 +3,25 @@ module github.com/agilsyofian/gosdk/storage/redis
 go 1.26.4
 
 require (
-	github.com/agilsyofian/gosdk/observability/logger v0.0.0
 	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0
+	github.com/agilsyofian/gosdk/observability/logger v0.0.0
 	github.com/agilsyofian/gosdk/storage/cache v0.0.0
 	github.com/redis/go-redis/v9 v9.21.0
-	go.opentelemetry.io/otel v1.44.0
-	go.opentelemetry.io/otel/trace v1.44.0
+	go.opentelemetry.io/otel v1.46.0
+	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/fx v1.24.0
 )
 
 replace (
-	github.com/agilsyofian/gosdk/observability/logger => ./../../../observability/logger
 	github.com/agilsyofian/gosdk/core/observability/tracing => ./../../../core/observability/tracing
+	github.com/agilsyofian/gosdk/observability/logger => ./../../../core/observability/logger
 	github.com/agilsyofian/gosdk/storage/cache => ./../../cache
 )
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
@@ -32,7 +32,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0 // indirect
-	go.opentelemetry.io/otel/metric v1.44.0 // indirect
+	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect

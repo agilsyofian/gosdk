@@ -5,11 +5,3 @@ type Config struct {
 	Endpoint     string  `mapstructure:"endpoint"`
 	SamplerRatio float64 `mapstructure:"sampler_ratio"`
 }
-
-func DefaultConfig() Config {
-	return Config{
-		Enabled:      true,
-		Endpoint:     "localhost:4317",
-		SamplerRatio: 1.0,
-	}
-}

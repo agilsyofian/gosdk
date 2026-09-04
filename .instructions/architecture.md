@@ -5,40 +5,95 @@
 `gosdk` is a Go workspace composed of independent modules. The current implemented layers are:
 
 ```text
-transport/server/*  ───────┐
-transport/client/*  ───────┤
-                           ├── security
-                           ├── resilience
-                           ├── observability/*
-                           └── storage/*
-security/session/redis ─────── storage/cache
-security/authenticator/* ──── security
-storage/* ─────────────────── observability
+transport/
+├── server/*  ────────────────────────────┐
+├── client/*  ────────────────────────────┤
+                                          ├── security
+                                          ├── storage/*
+                                          └── core/*
+
+security/
+├── session/
+    ├── memory ────────────────────────────── security
+├── session/
+    ├──redis ──────────────────────────────── security + storage/cache
+├── authenticator/* ───────────────────────── security
+├── * ─────────────────────────────────────── core/observability/*
+
+storage/
+├── cache                (interface)
+│   ├── local            (in-process)
+│   └── redis ───────────────────────────── core/observability/*
+├── database             (interface)
+│   ├── mysql  ──────────────────────────── core/observability/*
+│   ├── postgres ────────────────────────── core/observability/*
+│   └── oracle ──────────────────────────── core/observability/*
+└── objectstorage        (placeholder)
+    ├── minio
+    └── s3
+
+messaging/
+├── kafka       (confluent-kafka / segmentio)
+└── rabbitmq    (amqp)
+
+utils/          (golang.org/x/sync only)
+├── concurrency
+└── crypto
+
+tools/          (dev-time only, not imported by runtime packages)
+├── dbmigration
+├── mapgen
+└── scaffold
+
+core/
+  ├── errors                (zero external deps)
+  ├── resilience/*          (zero external deps)
+  └── observability/
+        ├── health          (zero external deps)
+        ├── tracing         (zero external deps)
+        └── logger          (zerolog only)
 ```
+
+The `core/` layer is the foundation: packages here have zero or near-zero external dependencies and must never import from `transport`, `security`, `storage`, `messaging`, or `tools`.
+
+`tools/` contains dev-time CLI utilities only. They must never be imported by any runtime SDK package.
 
 This is a practical dependency graph, not a requirement that every package import every lower layer. A package should depend only on the smallest abstraction it needs.
 
 ### Current important edges
 
 - `security/authenticator/apikey` and `security/authenticator/basicauth` depend on `security`.
-- `security/authenticator/jwt` depends on `security`, resilience, logging, and HTTP client functionality for JWKS-related work.
-- `security/session/memory` depends on `security`; `security/session/redis` depends on `security`, `errors`, and `storage/cache`.
-- `storage/cache/redis` implements `storage/cache` and uses logging/tracing.
-- database drivers implement `storage/database` and use logging/tracing.
-- HTTP/gRPC clients use resilience and observability helpers; the gRPC client also provides JWT bearer authorization.
-- HTTP/gRPC servers use errors, observability, and security-related middleware/interceptors.
+- `security/authenticator/jwt` depends on `security`, `core/resilience`, `core/observability/logger`, and HTTP client functionality for JWKS-related work.
+- `security/session/memory` depends on `security`; `security/session/redis` depends on `security`, `core/errors`, and `storage/cache`.
+- `storage/cache/redis` implements `storage/cache` and uses `core/observability/logger` and `core/observability/tracing`.
+- database drivers implement `storage/database` and use `core/observability/logger` and `core/observability/tracing`.
+- HTTP/gRPC clients use `core/resilience` and `core/observability/*`; the gRPC client also provides JWT bearer authorization.
+- HTTP/gRPC servers use `core/errors`, `core/observability/*`, and security-related middleware/interceptors.
+- **`core/observability/logger` does not depend on `core/observability/tracing`**. Callers are responsible for populating `LogPayload.TraceId`, `SessionId`, and `SpanId` before logging.
 
 Do not create reverse dependencies that make lower-level abstractions depend on transport or application code.
 
 ## 2. Current module responsibilities
 
-### `errors`
+### `core/errors`
 
-Centralized application error representation (`AppError`) and HTTP status classification.
+Centralized application error representation (`AppError`) and HTTP status classification. Zero external dependencies.
 
-### `resilience/*`
+### `core/resilience/*`
 
-Small policies exposing `Execute(ctx, fn)` for timeout, retry, rate limiting, and circuit breaking.
+Small policies exposing `Execute(ctx, fn)` for timeout, retry, rate limiting, and circuit breaking. Zero external dependencies.
+
+### `core/observability/logger`
+
+Logger interface (`Logger`), `LogPayload` struct, zerolog implementation, and sensitive-data filtering. Depends only on `zerolog`. Does **not** read trace/session data from context — callers must populate `LogPayload` fields before calling the logger.
+
+### `core/observability/tracing`
+
+OpenTelemetry tracing setup plus context helpers for `app_name`, `trace_id`, and `session_id`. Zero external dependencies beyond the OTel SDK.
+
+### `core/observability/health`
+
+Named health checks and registry aggregation. Zero external dependencies.
 
 ### `security`
 
@@ -58,23 +113,11 @@ Role/permission authorization implementation.
 
 ### `storage/cache`
 
-Cache abstraction. `storage/cache/redis` supplies the Redis implementation.
+Cache abstraction. `storage/cache/local` supplies the in-process implementation; `storage/cache/redis` supplies the Redis implementation.
 
 ### `storage/database`
 
 Database abstraction. `mysql`, `postgres`, and `oracle` supply concrete implementations.
-
-### `observability/logger`
-
-Logger interface and zerolog implementation, including sensitive-data filtering.
-
-### `observability/tracing`
-
-OpenTelemetry tracing setup plus application/trace/session context metadata.
-
-### `observability/health`
-
-Named health checks and registry aggregation.
 
 ### `transport/client/http`
 
@@ -92,28 +135,46 @@ Gin-based HTTP server with middleware, DTO helpers, health/actuator support, and
 
 gRPC server with interceptors, security extraction, registration, start/shutdown, and server options.
 
+### `messaging/kafka`
+
+Kafka producer and consumer implementation. Placeholder — not yet production-ready (see §3).
+
+### `messaging/rabbitmq`
+
+RabbitMQ producer and consumer implementation. Placeholder — not yet production-ready (see §3).
+
+### `utils`
+
+Shared runtime helpers with minimal dependencies (`golang.org/x/sync` only).
+
+- `utils/concurrency` — singleflight and worker-pool helpers.
+- `utils/crypto` — AES-GCM encryption/decryption and key generation helpers.
+
 ### `tools/dbmigration`
 
-Database migration command/tool and internal migration implementation.
+Database migration CLI tool. Dev-time only; must not be imported by runtime SDK packages.
+
+### `tools/mapgen`
+
+Code-generation tool for producing mapping boilerplate. Dev-time only.
 
 ### `tools/scaffold`
 
-Scaffolding command/tool. Keep generator behavior isolated from runtime SDK packages.
+Scaffolding CLI tool. Dev-time only; keep generator behavior isolated from runtime SDK packages.
 
-### `utils/crypto`
+### `examples`
 
-AES-GCM encryption/decryption and key generation helpers.
+Runnable example module demonstrating SDK usage patterns. Not imported by any SDK package; exists solely for documentation and integration reference.
 
 ## 3. Placeholder packages
 
 The following directories currently contain package documentation/placeholders rather than complete integrations:
 
-- `messaging/kafka`
-- `messaging/rabbitmq`
-- `observability/audit`
-- `observability/metrics`
-- `transport/server/websocket`
-- `storage/objectstorage` and its backend directories currently have no Go implementation in the source snapshot.
+- `messaging/kafka` and `messaging/rabbitmq` — implementation exists but is not production-hardened.
+- `core/observability/audit` and `core/observability/metrics` — no implementation yet.
+- `transport/server/websocket` — no implementation yet.
+- `storage/objectstorage` and its backend directories — no Go implementation in the source snapshot.
+- `tools/scaffold` — not registered in `go.work`; treat as work-in-progress.
 
 Do not write instructions that assume these are production-ready integrations.
 

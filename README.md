@@ -33,27 +33,19 @@ Read these files in this order, selecting all files relevant to the change:
 8. `.instructions/testing.md` — test requirements.
 9. `.instructions/roadmap.md` — current implementation status and intentionally unimplemented areas.
 
-`CURRENT_CODE.md` should be consulted whenever the task depends on what is actually implemented today.
-
 ## 3. Repository map — current source
 
 ```text
 gosdk/
-├── errors/                         # AppError and HTTP status helpers
-├── messaging/
-│   ├── kafka/                      # Kafka consumer & producer (segmentio/kafka-go)
-│   └── rabbitmq/                   # RabbitMQ consumer & producer (amqp091-go)
-├── observability/
-│   ├── audit/                      # package/documentation placeholder
-│   ├── health/                     # health registry/checks
-│   ├── logger/                     # Logger interface + zerolog implementation
-│   ├── metrics/                    # package/documentation placeholder
-│   └── tracing/                    # OpenTelemetry + context metadata
-├── resilience/
-│   ├── circuitbreaker/
-│   ├── ratelimit/
-│   ├── retry/
-│   └── timeout/
+├── core/
+│   ├── errors/                     # AppError and HTTP status helpers
+│   ├── resilience/                 # retry, timeout, ratelimit, circuitbreaker
+│   └── observability/
+│       ├── health/                 # health registry/checks
+│       ├── logger/                 # Logger interface + zerolog implementation
+│       ├── tracing/                # OpenTelemetry + context metadata
+│       ├── audit/                  # placeholder
+│       └── metrics/                # placeholder
 ├── security/
 │   ├── authenticator/
 │   │   ├── apikey/
@@ -64,15 +56,18 @@ gosdk/
 │   │   ├── memory/
 │   │   └── redis/
 │   ├── jwks/
-│   └── core security types, manager, registry, context, errors
+│   └── (core security types, manager, registry, context, errors)
 ├── storage/
-│   ├── cache/                      # Cache interface + Redis implementation
-│       ├── local/
-│       ├── redis/
-│   └── database/                   # Database interface + MySQL/PostgreSQL/Oracle
-│       ├── mysql/
-│       ├── oracle/
-│       └── postgres/
+│   ├── cache/
+│   │   ├── local/
+│   │   └── redis/
+│   ├── database/
+│   │   ├── mysql/
+│   │   ├── oracle/
+│   │   └── postgres/
+│   └── objectstorage/              # placeholder
+│       ├── minio/
+│       └── s3/
 ├── transport/
 │   ├── client/
 │   │   ├── grpc/
@@ -80,15 +75,18 @@ gosdk/
 │   └── server/
 │       ├── grpc/                   # interceptors + security extraction
 │       ├── http/                   # Gin server, middleware, DTO/security
-│       └── websocket/              # package/documentation placeholder
+│       └── websocket/              # placeholder
+├── messaging/
+│   ├── kafka/                      # Kafka consumer & producer
+│   └── rabbitmq/                   # RabbitMQ consumer & producer
+├── utils/
+│   ├── concurrency/
+│   └── crypto/
 ├── tools/
 │   ├── dbmigration/
-│   └── scaffold/
-├── utils/
-│   └── crypto/
-│   └── concurrency/
-│   └── mapgen/
-├── examples/                      # runnable example module
+│   ├── mapgen/
+│   └── scaffold/                   # not registered in go.work (WIP)
+├── examples/                       # runnable example module
 ├── go.work
 └── Makefile
 ```
@@ -99,14 +97,14 @@ There is **no current `app/`, `config/`, `foundation/`, or top-level `internal/`
 
 The workspace is defined by `go.work`. Current workspace modules include:
 
-- `errors`
+- `core/errors`
+- `core/observability/health`
+- `core/observability/logger`
+- `core/observability/tracing`
+- `core/resilience`
 - `examples`
 - `messaging/kafka`
 - `messaging/rabbitmq`
-- `observability/health`
-- `observability/logger`
-- `observability/tracing`
-- `resilience`
 - `security`
 - `security/authenticator/apikey`
 - `security/authenticator/basicauth`
@@ -114,19 +112,19 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `security/session/memory`
 - `security/session/redis`
 - `storage/cache`
+- `storage/cache/local`
 - `storage/cache/redis`
 - `storage/database`
 - `storage/database/mysql`
 - `storage/database/oracle`
 - `storage/database/postgres`
 - `tools/dbmigration`
+- `tools/mapgen`
 - `transport/client/grpc`
 - `transport/client/http`
 - `transport/server/grpc`
 - `transport/server/http`
 - `utils`
-- `utils/mapgen`
-- `utils/mapgen/examples`
 
 A directory is not automatically a Go module. Use the checked-in `go.mod`/`go.work` files as the authority.
 
