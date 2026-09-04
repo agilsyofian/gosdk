@@ -9,7 +9,7 @@ replace (
 	github.com/agilsyofian/gosdk/observability/health => ./../observability/health
 	github.com/agilsyofian/gosdk/observability/logger => ./../observability/logger
 	github.com/agilsyofian/gosdk/observability/tracing => ./../observability/tracing
-	github.com/agilsyofian/gosdk/resilience => ./../resilience
+	github.com/agilsyofian/gosdk/resilience => ./../core/resilience
 	github.com/agilsyofian/gosdk/security => ./../security
 	github.com/agilsyofian/gosdk/security/authenticator/jwt => ./../security/authenticator/jwt
 	github.com/agilsyofian/gosdk/security/session/redis => ./../security/session/redis

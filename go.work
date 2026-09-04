@@ -2,13 +2,13 @@ go 1.26.4
 
 use (
 	./core/errors
+	./core/resilience
 	./examples
 	./messaging/kafka
 	./messaging/rabbitmq
 	./observability/health
 	./observability/logger
 	./observability/tracing
-	./resilience
 	./security
 	./security/authenticator/apikey
 	./security/authenticator/basicauth
