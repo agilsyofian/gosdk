@@ -23,12 +23,10 @@ use (
 	./storage/database/oracle
 	./storage/database/postgres
 	./tools/dbmigration
+	./tools/mapgen
 	./transport/client/grpc
 	./transport/client/http
 	./transport/server/grpc
 	./transport/server/http
 	./utils
-	./utils/mapgen
-	./utils/mapgen/examples
-	tools/mapgen
 )

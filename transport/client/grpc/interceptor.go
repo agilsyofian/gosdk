@@ -15,9 +15,13 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// MetadataTraceID and MetadataSessionID are the gRPC metadata keys
+// injected by the Tracer interceptor. The canonical definitions live in
+// transport/server/grpc/metadata; the aliases here avoid an import cycle
+// between the client and server packages while keeping backwards compatibility.
 const (
-	MetadataTraceID   = "x-trace-id"
-	MetadataSessionID = "x-session-id"
+	MetadataTraceID   = "x-trace-id"   // same as metadata.TraceID
+	MetadataSessionID = "x-session-id" // same as metadata.SessionID
 )
 
 // metadataCarrier is a custom carrier for gRPC metadata that ensures keys are lowercase.
@@ -151,6 +155,21 @@ func AuthorizationBearer(tokenProvider TokenProvider) grpc.UnaryClientIntercepto
 		md.Set("authorization", fmt.Sprintf("Bearer %s", token))
 		ctx = metadata.NewOutgoingContext(ctx, md)
 
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+// PassThroughMetadata is an interceptor that passes through the outgoing
+// gRPC metadata already present in ctx without modification. Use it when
+// the caller is responsible for populating outgoing metadata (e.g. via
+// metadata.NewOutgoingContext) before the RPC is invoked.
+//
+// To propagate HTTP request metadata (set by transport/server/http/middleware
+// Metadata) into outgoing gRPC calls, convert it in the integration client
+// using metadata.Pairs with the values from httpmetadata.FromContext(ctx)
+// and attach it via metadata.NewOutgoingContext before calling the RPC.
+func PassThroughMetadata() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
