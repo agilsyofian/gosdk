@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/agilsyofian/gosdk/observability/health"
+	"github.com/agilsyofian/gosdk/core/observability/health"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
-	"github.com/agilsyofian/gosdk/observability/tracing"
 	"github.com/agilsyofian/gosdk/transport/server/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/swaggo/files"

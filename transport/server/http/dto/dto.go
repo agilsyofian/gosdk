@@ -3,7 +3,7 @@ package dto
 import (
 	"context"
 
-	"github.com/agilsyofian/gosdk/observability/tracing"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"go.opentelemetry.io/otel/trace"
 )
 

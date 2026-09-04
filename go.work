@@ -6,9 +6,9 @@ use (
 	./examples
 	./messaging/kafka
 	./messaging/rabbitmq
-	./observability/health
+	./core/observability/health
 	./observability/logger
-	./observability/tracing
+	./core/observability/tracing
 	./security
 	./security/authenticator/apikey
 	./security/authenticator/basicauth

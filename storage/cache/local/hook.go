@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
-	coreContext "github.com/agilsyofian/gosdk/observability/tracing"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

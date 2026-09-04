@@ -3,7 +3,7 @@ package middleware
 import (
 	"encoding/hex"
 
-	"github.com/agilsyofian/gosdk/observability/tracing"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"

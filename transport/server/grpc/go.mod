@@ -3,7 +3,7 @@ module github.com/agilsyofian/gosdk/transport/server/grpc
 go 1.26.4
 
 require (
-	github.com/agilsyofian/gosdk/observability/tracing v0.0.0
+	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0
 	github.com/google/uuid v1.6.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
@@ -12,7 +12,7 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-replace github.com/agilsyofian/gosdk/observability/tracing => ./../../../observability/tracing
+replace github.com/agilsyofian/gosdk/core/observability/tracing => ./../../../core/observability/tracing
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect

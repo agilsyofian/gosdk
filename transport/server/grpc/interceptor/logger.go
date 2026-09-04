@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
-	coreContext "github.com/agilsyofian/gosdk/observability/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"

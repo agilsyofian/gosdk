@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/observability/tracing
+module github.com/agilsyofian/gosdk/core/observability/tracing
 
 go 1.26.4
 

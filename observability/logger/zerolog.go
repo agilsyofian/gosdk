@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	coreContext "github.com/agilsyofian/gosdk/observability/tracing"
+	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 )

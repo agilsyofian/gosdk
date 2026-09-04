@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 
-	coreContext "github.com/agilsyofian/gosdk/observability/tracing"
+	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

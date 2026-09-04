@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
-	coreContext "github.com/agilsyofian/gosdk/observability/tracing"
 	"github.com/agilsyofian/gosdk/storage/database"
 	_ "github.com/go-sql-driver/mysql" // mysql driver
 	"go.opentelemetry.io/otel"

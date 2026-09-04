@@ -4,11 +4,11 @@ go 1.26.4
 
 replace github.com/agilsyofian/gosdk/observability/logger => ../../observability/logger
 
-replace github.com/agilsyofian/gosdk/observability/tracing => ../../observability/tracing
+replace github.com/agilsyofian/gosdk/core/observability/tracing => ./../../core/observability/tracing
 
 require (
 	github.com/agilsyofian/gosdk/observability/logger v0.0.0-00010101000000-000000000000
-	github.com/agilsyofian/gosdk/observability/tracing v0.0.0-00010101000000-000000000000
+	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0-00010101000000-000000000000
 )
 
 require (
