@@ -1,6 +1,6 @@
 module github.com/agilsyofian/gosdk/storage/local
 
-go 1.26.4
+go 1.26.8
 
 require (
 	github.com/agilsyofian/gosdk/observability/logger v0.0.1
