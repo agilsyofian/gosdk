@@ -1,13 +1,19 @@
 package rabbitmq
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"github.com/agilsyofian/gosdk/core/observability/health"
 )
+
+// Ensure Client implements health.Check interface
+var _ health.Check = (*Client)(nil)
 
 // Config is the fully-resolved configuration required to construct a
 // Client. Messaging never reads environment variables directly
@@ -94,7 +100,11 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("rabbitmq: connect: %w", err)
 	}
 
-	return &Client{conn: conn, opts: o}, nil
+	client := &Client{conn: conn, opts: o}
+	if o.healthRegistry != nil {
+		o.healthRegistry.RegisterReadiness("rabbitmq", client)
+	}
+	return client, nil
 }
 
 // Producer returns a Producer that publishes to exchange using this
@@ -216,4 +226,24 @@ func (c *Client) Close() error {
 		errs = append(errs, fmt.Errorf("rabbitmq: close connection: %w", err))
 	}
 	return errors.Join(errs...)
+}
+
+// Check implements health.Check for RabbitMQ readiness.
+func (c *Client) Check(ctx context.Context) health.Health {
+	c.mu.Lock()
+	closed := c.closed
+	conn := c.conn
+	c.mu.Unlock()
+
+	if closed || conn == nil {
+		return health.DownWithDetails(map[string]any{"error": "rabbitmq client is closed"})
+	}
+
+	ch, err := conn.Channel()
+	if err != nil {
+		return health.DownWithDetails(map[string]any{"error": fmt.Sprintf("rabbitmq channel error: %v", err)})
+	}
+	_ = ch.Close()
+
+	return health.Up()
 }

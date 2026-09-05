@@ -6,6 +6,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/observability/logger"
 )
 
@@ -15,9 +16,10 @@ import (
 type Option func(*clientOptions)
 
 type clientOptions struct {
-	logger    logger.Logger
-	tls       *tls.Config
-	heartbeat time.Duration
+	logger         logger.Logger
+	tls            *tls.Config
+	heartbeat      time.Duration
+	healthRegistry health.Registry
 }
 
 func defaultClientOptions() clientOptions {
@@ -25,6 +27,12 @@ func defaultClientOptions() clientOptions {
 		logger:    logger.Nop(),
 		heartbeat: 10 * time.Second,
 	}
+}
+
+// WithHealthRegistry injects a health.Registry to automatically register
+// readiness checks for this RabbitMQ Client.
+func WithHealthRegistry(hr health.Registry) Option {
+	return func(o *clientOptions) { o.healthRegistry = hr }
 }
 
 // WithLogger injects the Logger used for every Producer/Consumer spawned

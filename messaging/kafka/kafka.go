@@ -1,13 +1,20 @@
 package kafka
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
+
+	"github.com/agilsyofian/gosdk/core/observability/health"
 )
+
+// Ensure Client implements health.Check interface
+var _ health.Check = (*Client)(nil)
 
 // Config is the fully-resolved configuration required to construct a
 // Client. Messaging never reads environment variables directly
@@ -65,7 +72,11 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return &Client{cfg: cfg, opts: o}, nil
+	client := &Client{cfg: cfg, opts: o}
+	if o.healthRegistry != nil {
+		o.healthRegistry.RegisterReadiness("kafka", client)
+	}
+	return client, nil
 }
 
 func (c *Client) transport() *kafkago.Transport {
@@ -192,4 +203,43 @@ func (c *Client) Close() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// Check implements health.Check for Kafka readiness.
+func (c *Client) Check(ctx context.Context) health.Health {
+	c.mu.Lock()
+	closed := c.closed
+	c.mu.Unlock()
+
+	if closed {
+		return health.DownWithDetails(map[string]any{"error": "kafka client is closed"})
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var errs []string
+	reachable := 0
+
+	dialer := c.dialer()
+
+	for _, broker := range c.cfg.Brokers {
+		conn, err := dialer.DialContext(checkCtx, "tcp", broker)
+		if err == nil {
+			_ = conn.Close()
+			reachable++
+			// At least one broker in the cluster is reachable -> cluster is considered UP
+			break
+		}
+		errs = append(errs, fmt.Sprintf("%s: %v", broker, err))
+	}
+
+	if reachable > 0 {
+		return health.Up()
+	}
+
+	return health.DownWithDetails(map[string]any{
+		"error":   "no reachable kafka brokers",
+		"details": errs,
+	})
 }

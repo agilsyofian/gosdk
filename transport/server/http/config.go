@@ -3,6 +3,7 @@ package http
 import "time"
 
 type Config struct {
+	BasePath        string         `mapstructure:"base_path"`
 	Addr            string         `mapstructure:"addr" validate:"required"`
 	ReadTimeout     time.Duration  `mapstructure:"read_timeout" validate:"required"`
 	WriteTimeout    time.Duration  `mapstructure:"write_timeout" validate:"required"`
@@ -16,8 +17,10 @@ type Config struct {
 }
 
 type ActuatorConfig struct {
-	Enabled    bool   `mapstructure:"enabled"`
-	Path       string `mapstructure:"path"`
-	HealthPath string `mapstructure:"health_path"`
-	InfoPath   string `mapstructure:"info_path"`
+	Enabled       bool   `mapstructure:"enabled"`
+	Path          string `mapstructure:"path"`
+	HealthPath    string `mapstructure:"health_path"`
+	LivenessPath  string `mapstructure:"liveness_path"`
+	ReadinessPath string `mapstructure:"readiness_path"`
+	InfoPath      string `mapstructure:"info_path"`
 }

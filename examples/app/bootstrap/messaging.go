@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/messaging/kafka"
 	"github.com/agilsyofian/gosdk/observability/logger"
@@ -17,14 +18,15 @@ var Messaging = fx.Module("messaging",
 			}
 		},
 		fx.Annotate(
-			func(appName string, logger logger.Logger) []kafka.Option {
+			func(appName string, logger logger.Logger, hr health.Registry) []kafka.Option {
 				res := []kafka.Option{
 					kafka.WithAppName(appName),
 					kafka.WithLogger(logger),
+					kafka.WithHealthRegistry(hr),
 				}
 				return res
 			},
-			fx.ParamTags(`name:"appName"`),
+			fx.ParamTags(`name:"appName"`, ``, ``),
 			fx.ResultTags(`name:"kafkaClientOptions"`),
 		),
 		fx.Annotate(

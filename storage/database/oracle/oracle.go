@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/database"
@@ -17,8 +18,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// Ensure Database implements xdatabase.Database interface
+// Ensure Database implements database.Database interface
 var _ database.Database = (*DB)(nil)
+
+// Ensure DB implements health.Check interface
+var _ health.Check = (*DB)(nil)
 
 // DB OracleDB is the Database implementation for Oracle.
 // Uses the go-ora driver because it's pure Go (no OCI/Instant Client required).
@@ -32,10 +36,12 @@ type DB struct {
 }
 
 // NewOracleDB creates an empty instance; call Connect afterward.
+// If health.Registry is provided, it automatically registers a readiness check for Oracle.
 func NewOracleDB(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
+	hrs ...health.Registry,
 ) (*DB, error) {
 
 	appName := coreContext.AppName(context.Background())
@@ -44,6 +50,13 @@ func NewOracleDB(
 		cfg:     cfg,
 		logger:  l,
 		appName: appName,
+	}
+
+	for _, hr := range hrs {
+		if hr != nil {
+			hr.RegisterReadiness("oracle", db)
+			break
+		}
 	}
 
 	lc.Append(fx.Hook{
@@ -240,4 +253,18 @@ func (o *DB) Driver() string {
 
 func (o *DB) Stats() sql.DBStats {
 	return o.db.Stats()
+}
+
+// Check implements health.Check for Oracle readiness.
+func (o *DB) Check(ctx context.Context) health.Health {
+	if o.db == nil {
+		return health.DownWithDetails(map[string]any{"error": "database is not connected"})
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := o.db.PingContext(ctx); err != nil {
+		return health.DownWithDetails(map[string]any{"error": err.Error()})
+	}
+	return health.Up()
 }

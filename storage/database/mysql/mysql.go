@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/database"
@@ -17,8 +18,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// Ensure Database implements xdatabase.Database interface
+// Ensure Database implements database.Database interface
 var _ database.Database = (*DB)(nil)
+
+// Ensure DB implements health.Check interface
+var _ health.Check = (*DB)(nil)
 
 // DB MySQLDB is the Database implementation for MySQL/MariaDB.
 type DB struct {
@@ -29,10 +33,12 @@ type DB struct {
 }
 
 // NewMySQLDB creates an empty instance; call Connect afterward.
+// If health.Registry is provided, it automatically registers a readiness check for MySQL.
 func NewMySQLDB(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
+	hrs ...health.Registry,
 ) (*DB, error) {
 
 	appName := coreContext.AppName(context.Background())
@@ -41,6 +47,13 @@ func NewMySQLDB(
 		cfg:     cfg,
 		logger:  l,
 		appName: appName,
+	}
+
+	for _, hr := range hrs {
+		if hr != nil {
+			hr.RegisterReadiness("mysql", db)
+			break
+		}
 	}
 
 	lc.Append(fx.Hook{
@@ -233,4 +246,18 @@ func (m *DB) Driver() string {
 
 func (m *DB) Stats() sql.DBStats {
 	return m.db.Stats()
+}
+
+// Check implements health.Check for MySQL readiness.
+func (m *DB) Check(ctx context.Context) health.Health {
+	if m.db == nil {
+		return health.DownWithDetails(map[string]any{"error": "database is not connected"})
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := m.db.PingContext(ctx); err != nil {
+		return health.DownWithDetails(map[string]any{"error": err.Error()})
+	}
+	return health.Up()
 }

@@ -6,7 +6,10 @@ replace github.com/agilsyofian/gosdk/observability/logger => ./../../core/observ
 
 replace github.com/agilsyofian/gosdk/core/observability/tracing => ./../../core/observability/tracing
 
+replace github.com/agilsyofian/gosdk/core/observability/health => ./../../core/observability/health
+
 require (
+	github.com/agilsyofian/gosdk/core/observability/health v0.0.0-00010101000000-000000000000
 	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0-00010101000000-000000000000
 	github.com/agilsyofian/gosdk/observability/logger v0.0.0-00010101000000-000000000000
 )

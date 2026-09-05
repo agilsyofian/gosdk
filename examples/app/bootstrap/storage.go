@@ -1,7 +1,9 @@
 package bootstrap
 
 import (
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/example/app/config"
+	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/agilsyofian/gosdk/storage/database"
 	"github.com/agilsyofian/gosdk/storage/postgres"
@@ -14,15 +16,13 @@ var Storage = fx.Module("storage",
 		func(cfg config.AppConfig) redis.Config {
 			return cfg.Storage.Cache
 		},
-		fx.Annotate(
-			redis.NewRedisCache,
-			fx.As(new(cache.Cache)),
-		),
+		func(lc fx.Lifecycle, l logger.Logger, cfg redis.Config, hr health.Registry) (cache.Cache, error) {
+			return redis.NewRedisCache(lc, l, cfg, hr)
+		},
 
 		func(cfg config.AppConfig) postgres.Config { return cfg.Storage.Postgres },
-		fx.Annotate(
-			postgres.NewPostgresDB,
-			fx.As(new(database.Database)),
-		),
+		func(lc fx.Lifecycle, l logger.Logger, cfg postgres.Config, hr health.Registry) (database.Database, error) {
+			return postgres.NewPostgresDB(lc, l, cfg, hr)
+		},
 	),
 )

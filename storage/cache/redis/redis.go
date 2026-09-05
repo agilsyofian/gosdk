@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
@@ -14,8 +15,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// Ensure Cache implements xcache.Cache interface
+// Ensure Cache implements cache.Cache interface
 var _ cache.Cache = (*Cache)(nil)
+
+// Ensure Cache implements health.Check interface
+var _ health.Check = (*Cache)(nil)
 
 // Cache is a Cache implementation using Redis.
 // It supports standalone, cluster, and sentinel topologies via redis.UniversalClient.
@@ -26,6 +30,7 @@ type Cache struct {
 }
 
 // NewRedisCache creates a new instance of RedisCache.
+// If health.Registry is provided, it automatically registers a readiness check for Redis.
 // The topology (standalone / cluster / sentinel) is selected automatically from Config.Type:
 //   - standalone: single node, uses Config.DB
 //   - cluster:    multi-node sharding, uses Config.MaxRedirects / routing options
@@ -34,6 +39,7 @@ func NewRedisCache(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
+	hrs ...health.Registry,
 ) (*Cache, error) {
 
 	cfg = mergeConfig(DefaultConfig(), cfg)
@@ -73,17 +79,48 @@ func NewRedisCache(
 		},
 	})
 
-	return &Cache{
+	c := &Cache{
 		client:  client,
 		logger:  l,
 		appName: appName,
-	}, nil
+	}
+
+	for _, hr := range hrs {
+		if hr != nil {
+			hr.RegisterReadiness("redis", c)
+			break
+		}
+	}
+
+	return c, nil
+}
+
+// Check implements health.Check for Redis readiness.
+func (c *Cache) Check(ctx context.Context) health.Health {
+	if c.client == nil {
+		return health.DownWithDetails(map[string]any{"error": "redis client is not initialized"})
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := c.client.Ping(ctx).Err(); err != nil {
+		return health.DownWithDetails(map[string]any{"error": err.Error()})
+	}
+	return health.Up()
 }
 
 // mergeConfig applies non-zero fields from override on top of base.
 // This lets callers pass a partial Config and still get sensible defaults
 // for any fields they did not explicitly set.
 func mergeConfig(base, override Config) Config {
+	mergeConnectionConfig(&base, override)
+	mergePoolAndTimeoutConfig(&base, override)
+	mergeRetryAndClusterConfig(&base, override)
+	mergeFlagsConfig(&base, override)
+	return base
+}
+
+func mergeConnectionConfig(base *Config, override Config) {
 	if override.Type != "" {
 		base.Type = override.Type
 	}
@@ -102,6 +139,9 @@ func mergeConfig(base, override Config) Config {
 	if override.DB != 0 {
 		base.DB = override.DB
 	}
+}
+
+func mergePoolAndTimeoutConfig(base *Config, override Config) {
 	if override.PoolSize != 0 {
 		base.PoolSize = override.PoolSize
 	}
@@ -117,6 +157,9 @@ func mergeConfig(base, override Config) Config {
 	if override.WriteTimeout != 0 {
 		base.WriteTimeout = override.WriteTimeout
 	}
+}
+
+func mergeRetryAndClusterConfig(base *Config, override Config) {
 	if override.MaxRetries != 0 {
 		base.MaxRetries = override.MaxRetries
 	}
@@ -129,7 +172,9 @@ func mergeConfig(base, override Config) Config {
 	if override.MaxRedirects != 0 {
 		base.MaxRedirects = override.MaxRedirects
 	}
-	// boolean fields: only override if explicitly true
+}
+
+func mergeFlagsConfig(base *Config, override Config) {
 	if override.RouteByLatency {
 		base.RouteByLatency = true
 	}
@@ -145,7 +190,6 @@ func mergeConfig(base, override Config) Config {
 	if override.Logger.Enabled {
 		base.Logger.Enabled = true
 	}
-	return base
 }
 
 // buildUniversalOptions maps Config fields to redis.UniversalOptions.

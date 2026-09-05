@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
@@ -17,6 +18,9 @@ import (
 
 // Ensure Cache implements cache.Cache interface
 var _ cache.Cache = (*Cache)(nil)
+
+// Ensure Cache implements health.Check interface
+var _ health.Check = (*Cache)(nil)
 
 type item struct {
 	value     []byte
@@ -42,10 +46,12 @@ type Cache struct {
 }
 
 // NewLocalCache creates a new instance of LocalCache.
+// If health.Registry is provided, it automatically registers a readiness check for LocalCache.
 func NewLocalCache(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
+	hrs ...health.Registry,
 ) (*Cache, error) {
 	ctx := context.Background()
 	appName := coreContext.AppName(ctx)
@@ -56,6 +62,13 @@ func NewLocalCache(
 		logger:  l,
 		appName: appName,
 		stopCh:  make(chan struct{}),
+	}
+
+	for _, hr := range hrs {
+		if hr != nil {
+			hr.RegisterReadiness("local_cache", c)
+			break
+		}
 	}
 
 	if cfg.CleanupInterval > 0 {
@@ -347,4 +360,9 @@ func toBytes(v any) ([]byte, error) {
 	default:
 		return json.Marshal(val)
 	}
+}
+
+// Check implements health.Check for LocalCache readiness.
+func (c *Cache) Check(ctx context.Context) health.Health {
+	return health.Up()
 }

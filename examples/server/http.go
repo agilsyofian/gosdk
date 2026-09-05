@@ -45,7 +45,7 @@ func (h *HttpHandler) SetupRouter() {
 	// Register some custom health checks
 	h.health.Register("example_check", &exampleHealthCheck{})
 
-	r := h.server.Router().Group("/example")
+	r := h.server.Router()
 
 	jwtSecurity := ginsecurity.New(h.security, ginsecurity.Config{
 		Required:     true,
@@ -88,10 +88,5 @@ func (h *HttpHandler) SetupRouter() {
 type exampleHealthCheck struct{}
 
 func (e *exampleHealthCheck) Check(ctx context.Context) health.Health {
-	return health.Health{
-		Status: health.StatusUp,
-		Details: map[string]any{
-			"message": "all systems go",
-		},
-	}
+	return health.Up()
 }

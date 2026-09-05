@@ -7,6 +7,7 @@ import (
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/observability/logger"
 )
 
@@ -17,11 +18,12 @@ import (
 type Option func(*clientOptions)
 
 type clientOptions struct {
-	appName     string
-	logger      logger.Logger
-	dialTimeout time.Duration
-	tls         *tls.Config
-	sasl        sasl.Mechanism
+	appName        string
+	logger         logger.Logger
+	dialTimeout    time.Duration
+	tls            *tls.Config
+	sasl           sasl.Mechanism
+	healthRegistry health.Registry
 }
 
 func defaultClientOptions() clientOptions {
@@ -29,6 +31,12 @@ func defaultClientOptions() clientOptions {
 		logger:      logger.Nop(),
 		dialTimeout: 10 * time.Second,
 	}
+}
+
+// WithHealthRegistry injects a health.Registry to automatically register
+// readiness checks for this Kafka Client.
+func WithHealthRegistry(hr health.Registry) Option {
+	return func(o *clientOptions) { o.healthRegistry = hr }
 }
 
 // WithLogger injects the Logger used for every Producer/Consumer spawned

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/health"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/database"
@@ -17,8 +18,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// Ensure Database implements xdatabase.Database interface
+// Ensure Database implements database.Database interface
 var _ database.Database = (*DB)(nil)
+
+// Ensure DB implements health.Check interface
+var _ health.Check = (*DB)(nil)
 
 // DB PostgresDB is the Database implementation for PostgreSQL.
 type DB struct {
@@ -29,10 +33,12 @@ type DB struct {
 }
 
 // NewPostgresDB creates an empty instance; call Connect afterward.
+// If health.Registry is provided, it automatically registers a readiness check for this database.
 func NewPostgresDB(
 	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
+	hrs ...health.Registry,
 ) (*DB, error) {
 
 	appName := coreContext.AppName(context.Background())
@@ -41,6 +47,13 @@ func NewPostgresDB(
 		cfg:     cfg,
 		logger:  l,
 		appName: appName,
+	}
+
+	for _, hr := range hrs {
+		if hr != nil {
+			hr.RegisterReadiness("postgres", db)
+			break
+		}
 	}
 
 	lc.Append(fx.Hook{
@@ -236,4 +249,18 @@ func (p *DB) Driver() string {
 
 func (p *DB) Stats() sql.DBStats {
 	return p.db.Stats()
+}
+
+// Check implements health.Check for PostgreSQL readiness.
+func (p *DB) Check(ctx context.Context) health.Health {
+	if p.db == nil {
+		return health.DownWithDetails(map[string]any{"error": "database is not connected"})
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := p.db.PingContext(ctx); err != nil {
+		return health.DownWithDetails(map[string]any{"error": err.Error()})
+	}
+	return health.Up()
 }

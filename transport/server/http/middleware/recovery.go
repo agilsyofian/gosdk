@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	goError "errors"
+	"fmt"
 
 	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/gin-gonic/gin"
@@ -15,12 +15,20 @@ func Recovery(appName string) gin.HandlerFunc {
 				var err error
 				switch x := r.(type) {
 				case error:
-					err = errors.InternalServerError(x, appName, errors.StatusInternalServerError.String(), "An error occurred")
+					err = x
 				default:
-					err = errors.Unknown(goError.New("unknown error"))
+					err = fmt.Errorf("%v", x)
 				}
 
-				_ = c.Error(err)
+				appErr := errors.InternalServerError(
+					err,
+					appName,
+					errors.StatusInternalServerError.String(),
+					"An error occurred",
+				)
+
+				_ = c.Error(appErr)
+				c.Abort()
 			}
 		}()
 
