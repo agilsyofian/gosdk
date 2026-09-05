@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,8 +21,88 @@ type CombinedRequest struct {
 	Query map[string]string `json:"query"`
 }
 
-func Logger(l logger.Logger, appName string) gin.HandlerFunc {
+// RouteMatcher matches request paths against exact, prefix, and regex patterns.
+type RouteMatcher struct {
+	patterns []string
+	regexes  []*regexp.Regexp
+}
+
+// NewRouteMatcher creates a new RouteMatcher preloaded with default exclusions ("/swagger")
+// and any user-specified routes.
+func NewRouteMatcher(routes ...string) *RouteMatcher {
+	rm := &RouteMatcher{
+		patterns: []string{"/swagger"},
+	}
+	rm.Add(routes...)
+	return rm
+}
+
+// Add adds routes/patterns to the matcher.
+func (rm *RouteMatcher) Add(routes ...string) {
+	for _, r := range routes {
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		if strings.ContainsAny(r, `^$*+?|()[]`) {
+			if re, err := regexp.Compile(r); err == nil {
+				rm.regexes = append(rm.regexes, re)
+				continue
+			}
+		}
+		rm.patterns = append(rm.patterns, r)
+	}
+}
+
+// Matches checks if the path matches any excluded pattern or regex.
+func (rm *RouteMatcher) Matches(path string) bool {
+	for _, p := range rm.patterns {
+		if matchPath(p, path) {
+			return true
+		}
+	}
+	for _, re := range rm.regexes {
+		if re.MatchString(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchPath(pattern, path string) bool {
+	if pattern == "" {
+		return false
+	}
+	if path == pattern {
+		return true
+	}
+	patternWithSlash := strings.TrimRight(pattern, "/") + "/"
+	if strings.HasPrefix(path, patternWithSlash) {
+		return true
+	}
+	trimmedPattern := "/" + strings.Trim(pattern, "/")
+	if strings.Contains(path, trimmedPattern+"/") || strings.HasSuffix(path, trimmedPattern) {
+		return true
+	}
+	return false
+}
+
+// Logger creates a gin middleware for request/response logging.
+// Routes matching any pattern in excludeRoutes (or ROUTES_EXCLUDE_LOGGER env) or "/swagger" are excluded from logging.
+func Logger(l logger.Logger, appName string, excludeRoutes ...string) gin.HandlerFunc {
+	matcher := NewRouteMatcher(excludeRoutes...)
+	if envRoutes := os.Getenv("ROUTES_EXCLUDE_LOGGER"); envRoutes != "" {
+		for _, r := range strings.Split(envRoutes, ",") {
+			matcher.Add(r)
+		}
+	}
+
 	return func(c *gin.Context) {
+		if matcher.Matches(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
 		start := time.Now()
 
 		reqBody := captureRequestBody(c)
@@ -33,10 +115,6 @@ func Logger(l logger.Logger, appName string) gin.HandlerFunc {
 		})
 
 		c.Next()
-
-		if strings.HasPrefix(c.Request.URL.Path, "/swagger") {
-			return
-		}
 
 		payload := logger.LogPayload{
 			Timestamp: start,
@@ -55,12 +133,18 @@ func Logger(l logger.Logger, appName string) gin.HandlerFunc {
 			Duration:  time.Since(start).Milliseconds(),
 		}
 
-		l.Info(
+		logFunc := l.Info
+		if payload.Status >= 500 {
+			logFunc = l.Error
+		} else if payload.Status >= 400 {
+			logFunc = l.Warn
+		}
+
+		logFunc(
 			c.Request.Context(),
 			fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			payload,
 		)
-
 	}
 }
 

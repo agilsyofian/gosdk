@@ -49,7 +49,7 @@ func NewServer(
 		otelgin.Middleware(appName),
 		middleware.Metadata(),
 		middleware.Tracer(appName),
-		middleware.Logger(l, appName),
+		middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...),
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(appName),
 	)
