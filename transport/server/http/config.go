@@ -14,6 +14,8 @@ type Config struct {
 	EnableCors                 bool           `mapstructure:"enable_cors"`
 	Cors                       CorsConfig     `mapstructure:"cors"`
 	DisableBlockMethodOverride bool           `mapstructure:"disable_block_method_override"`
+	DisableBlockSpecialChars   bool           `mapstructure:"disable_block_special_chars"`
+	AllowedSpecialCharsRegex   string         `mapstructure:"allowed_special_chars_regex"`
 	EnableSwagger              bool           `mapstructure:"enable_swagger"`
 	ShowErrorDetail            bool           `mapstructure:"show_error_detail"`
 	LoggerExcludeRoutes        []string       `mapstructure:"logger_exclude_routes"`

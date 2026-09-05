@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -354,4 +355,50 @@ func TestServer_BlockMethodOverride(t *testing.T) {
 	wAllowed := httptest.NewRecorder()
 	sDisabled.ServeHTTP(wAllowed, reqAllowed)
 	assert.Equal(t, http.StatusOK, wAllowed.Code)
+}
+
+func TestServer_BlockJSONSpecialChars(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s.POST("/comment", func(c *gin.Context) {
+		c.String(http.StatusOK, "saved")
+	})
+
+	// 1. Normal JSON passes
+	reqOK, _ := http.NewRequest(http.MethodPost, "/comment", bytes.NewBufferString(`{"text": "Hello world"}`))
+	reqOK.Header.Set("Content-Type", "application/json")
+	wOK := httptest.NewRecorder()
+	s.ServeHTTP(wOK, reqOK)
+	assert.Equal(t, http.StatusOK, wOK.Code)
+
+	// 2. Dangerous XSS JSON is blocked (400)
+	reqBad, _ := http.NewRequest(http.MethodPost, "/comment", bytes.NewBufferString(`{"text": "<script>alert(1)</script>"}`))
+	reqBad.Header.Set("Content-Type", "application/json")
+	wBad := httptest.NewRecorder()
+	s.ServeHTTP(wBad, reqBad)
+	assert.Equal(t, http.StatusBadRequest, wBad.Code)
+
+	// 3. When disabled, dangerous JSON passes
+	cfgDisabled := httpServer.Config{
+		Addr:                     ":0",
+		Mode:                     "test",
+		DisableBlockSpecialChars: true,
+	}
+	sDisabled := httpServer.NewServer("test-app", lc, l, cfgDisabled, nil, nil)
+	sDisabled.POST("/comment", func(c *gin.Context) {
+		c.String(http.StatusOK, "saved")
+	})
+
+	reqBypass, _ := http.NewRequest(http.MethodPost, "/comment", bytes.NewBufferString(`{"text": "<script>alert(1)</script>"}`))
+	reqBypass.Header.Set("Content-Type", "application/json")
+	wBypass := httptest.NewRecorder()
+	sDisabled.ServeHTTP(wBypass, reqBypass)
+	assert.Equal(t, http.StatusOK, wBypass.Code)
 }

@@ -77,6 +77,9 @@ func NewServer(
 	if !cfg.DisableBlockMethodOverride {
 		engine.Use(middleware.BlockMethodOverride(appName))
 	}
+	if !cfg.DisableBlockSpecialChars {
+		engine.Use(middleware.BlockJSONSpecialChars(appName, cfg.AllowedSpecialCharsRegex))
+	}
 
 	basePath := normalizeBasePath(cfg.BasePath)
 	var baseRouter gin.IRouter = engine
