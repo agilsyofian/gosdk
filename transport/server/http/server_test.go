@@ -402,3 +402,33 @@ func TestServer_BlockJSONSpecialChars(t *testing.T) {
 	sDisabled.ServeHTTP(wBypass, reqBypass)
 	assert.Equal(t, http.StatusOK, wBypass.Code)
 }
+
+func TestServer_SecurityHeaders(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/ping", nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Strict-Transport-Security"), "max-age=16070400")
+	assert.Contains(t, w.Header().Get("Strict-Transport-Security"), "includeSubDomains")
+	assert.Contains(t, w.Header().Get("Strict-Transport-Security"), "preload")
+	assert.Equal(t, "frame-ancestors 'none'", w.Header().Get("Content-Security-Policy"))
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
+	assert.Equal(t, "no-store, no-cache, must-revalidate", w.Header().Get("Cache-Control"))
+	assert.Equal(t, "no-cache", w.Header().Get("Pragma"))
+}

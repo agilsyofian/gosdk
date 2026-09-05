@@ -71,6 +71,17 @@ func NewServer(
 		middleware.Metadata(),
 		middleware.Tracer(appName),
 		middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...),
+		middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
+			Disabled:              cfg.SecurityHeaders.Disabled,
+			HSTSMaxAge:            cfg.SecurityHeaders.HSTSMaxAge,
+			DisableHSTSSubdomains: cfg.SecurityHeaders.DisableHSTSSubdomains,
+			DisableHSTSPreload:    cfg.SecurityHeaders.DisableHSTSPreload,
+			ContentSecurityPolicy: cfg.SecurityHeaders.ContentSecurityPolicy,
+			FrameOptions:          cfg.SecurityHeaders.FrameOptions,
+			ReferrerPolicy:        cfg.SecurityHeaders.ReferrerPolicy,
+			DisableNoCache:        cfg.SecurityHeaders.DisableNoCache,
+			SanitizeResponse:      cfg.SecurityHeaders.SanitizeResponse,
+		}),
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(appName),
 	)
