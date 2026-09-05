@@ -56,6 +56,16 @@ func NewServer(
 	}
 
 	engine := gin.New()
+	if cfg.EnableCors {
+		engine.Use(middleware.CORS(middleware.CorsConfig{
+			AllowOrigins:     cfg.Cors.AllowOrigins,
+			AllowMethods:     cfg.Cors.AllowMethods,
+			AllowHeaders:     cfg.Cors.AllowHeaders,
+			ExposeHeaders:    cfg.Cors.ExposeHeaders,
+			AllowCredentials: cfg.Cors.AllowCredentials,
+			MaxAge:           cfg.Cors.MaxAge,
+		}))
+	}
 	engine.Use(
 		otelgin.Middleware(appName),
 		middleware.Metadata(),

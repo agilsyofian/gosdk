@@ -12,10 +12,20 @@ type Config struct {
 	ShutdownDelay       time.Duration  `mapstructure:"shutdown_delay"`
 	Mode                string         `mapstructure:"mode" validate:"required"`
 	EnableCors          bool           `mapstructure:"enable_cors"`
+	Cors                CorsConfig     `mapstructure:"cors"`
 	EnableSwagger       bool           `mapstructure:"enable_swagger"`
 	ShowErrorDetail     bool           `mapstructure:"show_error_detail"`
 	LoggerExcludeRoutes []string       `mapstructure:"logger_exclude_routes"`
 	Actuator            ActuatorConfig `mapstructure:"actuator"`
+}
+
+type CorsConfig struct {
+	AllowOrigins     []string      `mapstructure:"allow_origins"`
+	AllowMethods     []string      `mapstructure:"allow_methods"`
+	AllowHeaders     []string      `mapstructure:"allow_headers"`
+	ExposeHeaders    []string      `mapstructure:"expose_headers"`
+	AllowCredentials bool          `mapstructure:"allow_credentials"`
+	MaxAge           time.Duration `mapstructure:"max_age"`
 }
 
 type ActuatorConfig struct {

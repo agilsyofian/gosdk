@@ -261,3 +261,46 @@ func TestServer_GracefulShutdown_HealthProbes503(t *testing.T) {
 	s.ServeHTTP(wReady, reqReady)
 	assert.Equal(t, http.StatusServiceUnavailable, wReady.Code)
 }
+
+func TestServer_CORS(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr:       ":0",
+		Mode:       "test",
+		EnableCors: true,
+		Cors: httpServer.CorsConfig{
+			AllowOrigins:     []string{"https://app.example.com"},
+			AllowMethods:     []string{"GET", "POST"},
+			AllowCredentials: true,
+		},
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s.GET("/test-cors", func(c *gin.Context) {
+		c.String(http.StatusOK, "cors ok")
+	})
+
+	// Preflight OPTIONS
+	reqOpt, _ := http.NewRequest(http.MethodOptions, "/test-cors", nil)
+	reqOpt.Header.Set("Origin", "https://app.example.com")
+	reqOpt.Header.Set("Access-Control-Request-Method", "POST")
+	wOpt := httptest.NewRecorder()
+	s.ServeHTTP(wOpt, reqOpt)
+
+	assert.Equal(t, http.StatusNoContent, wOpt.Code)
+	assert.Equal(t, "https://app.example.com", wOpt.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", wOpt.Header().Get("Access-Control-Allow-Credentials"))
+	assert.Contains(t, wOpt.Header().Get("Vary"), "Origin")
+
+	// Standard GET
+	reqGet, _ := http.NewRequest(http.MethodGet, "/test-cors", nil)
+	reqGet.Header.Set("Origin", "https://app.example.com")
+	wGet := httptest.NewRecorder()
+	s.ServeHTTP(wGet, reqGet)
+
+	assert.Equal(t, http.StatusOK, wGet.Code)
+	assert.Equal(t, "https://app.example.com", wGet.Header().Get("Access-Control-Allow-Origin"))
+	assert.Contains(t, wGet.Header().Get("Vary"), "Origin")
+}
