@@ -74,6 +74,9 @@ func NewServer(
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(appName),
 	)
+	if !cfg.DisableBlockMethodOverride {
+		engine.Use(middleware.BlockMethodOverride(appName))
+	}
 
 	basePath := normalizeBasePath(cfg.BasePath)
 	var baseRouter gin.IRouter = engine

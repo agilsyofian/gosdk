@@ -3,20 +3,21 @@ package http
 import "time"
 
 type Config struct {
-	BasePath            string         `mapstructure:"base_path"`
-	Addr                string         `mapstructure:"addr" validate:"required"`
-	ReadTimeout         time.Duration  `mapstructure:"read_timeout" validate:"required"`
-	WriteTimeout        time.Duration  `mapstructure:"write_timeout" validate:"required"`
-	IdleTimeout         time.Duration  `mapstructure:"idle_timeout" validate:"required"`
-	ShutdownTimeout     time.Duration  `mapstructure:"shutdown_timeout" validate:"required"`
-	ShutdownDelay       time.Duration  `mapstructure:"shutdown_delay"`
-	Mode                string         `mapstructure:"mode" validate:"required"`
-	EnableCors          bool           `mapstructure:"enable_cors"`
-	Cors                CorsConfig     `mapstructure:"cors"`
-	EnableSwagger       bool           `mapstructure:"enable_swagger"`
-	ShowErrorDetail     bool           `mapstructure:"show_error_detail"`
-	LoggerExcludeRoutes []string       `mapstructure:"logger_exclude_routes"`
-	Actuator            ActuatorConfig `mapstructure:"actuator"`
+	BasePath                   string         `mapstructure:"base_path"`
+	Addr                       string         `mapstructure:"addr" validate:"required"`
+	ReadTimeout                time.Duration  `mapstructure:"read_timeout" validate:"required"`
+	WriteTimeout               time.Duration  `mapstructure:"write_timeout" validate:"required"`
+	IdleTimeout                time.Duration  `mapstructure:"idle_timeout" validate:"required"`
+	ShutdownTimeout            time.Duration  `mapstructure:"shutdown_timeout" validate:"required"`
+	ShutdownDelay              time.Duration  `mapstructure:"shutdown_delay"`
+	Mode                       string         `mapstructure:"mode" validate:"required"`
+	EnableCors                 bool           `mapstructure:"enable_cors"`
+	Cors                       CorsConfig     `mapstructure:"cors"`
+	DisableBlockMethodOverride bool           `mapstructure:"disable_block_method_override"`
+	EnableSwagger              bool           `mapstructure:"enable_swagger"`
+	ShowErrorDetail            bool           `mapstructure:"show_error_detail"`
+	LoggerExcludeRoutes        []string       `mapstructure:"logger_exclude_routes"`
+	Actuator                   ActuatorConfig `mapstructure:"actuator"`
 }
 
 type CorsConfig struct {

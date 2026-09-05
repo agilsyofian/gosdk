@@ -304,3 +304,54 @@ func TestServer_CORS(t *testing.T) {
 	assert.Equal(t, "https://app.example.com", wGet.Header().Get("Access-Control-Allow-Origin"))
 	assert.Contains(t, wGet.Header().Get("Vary"), "Origin")
 }
+
+func TestServer_BlockMethodOverride(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s.POST("/items", func(c *gin.Context) {
+		c.String(http.StatusOK, "created")
+	})
+
+	// 1. Normal request passes
+	reqOK, _ := http.NewRequest(http.MethodPost, "/items", nil)
+	wOK := httptest.NewRecorder()
+	s.ServeHTTP(wOK, reqOK)
+	assert.Equal(t, http.StatusOK, wOK.Code)
+
+	// 2. Request with X-HTTP-Method-Override is blocked (403)
+	reqBlockHeader, _ := http.NewRequest(http.MethodPost, "/items", nil)
+	reqBlockHeader.Header.Set("X-HTTP-Method-Override", "DELETE")
+	wBlockHeader := httptest.NewRecorder()
+	s.ServeHTTP(wBlockHeader, reqBlockHeader)
+	assert.Equal(t, http.StatusForbidden, wBlockHeader.Code)
+
+	// 3. Request with _method query param is blocked (403)
+	reqBlockQuery, _ := http.NewRequest(http.MethodPost, "/items?_method=PUT", nil)
+	wBlockQuery := httptest.NewRecorder()
+	s.ServeHTTP(wBlockQuery, reqBlockQuery)
+	assert.Equal(t, http.StatusForbidden, wBlockQuery.Code)
+
+	// 4. When disabled, request passes
+	cfgDisabled := httpServer.Config{
+		Addr:                       ":0",
+		Mode:                       "test",
+		DisableBlockMethodOverride: true,
+	}
+	sDisabled := httpServer.NewServer("test-app", lc, l, cfgDisabled, nil, nil)
+	sDisabled.POST("/items", func(c *gin.Context) {
+		c.String(http.StatusOK, "created")
+	})
+
+	reqAllowed, _ := http.NewRequest(http.MethodPost, "/items", nil)
+	reqAllowed.Header.Set("X-HTTP-Method-Override", "DELETE")
+	wAllowed := httptest.NewRecorder()
+	sDisabled.ServeHTTP(wAllowed, reqAllowed)
+	assert.Equal(t, http.StatusOK, wAllowed.Code)
+}
