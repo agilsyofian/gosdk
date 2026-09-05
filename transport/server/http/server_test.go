@@ -208,3 +208,56 @@ func TestServer_BasePath_Normalization(t *testing.T) {
 		assert.Equal(t, tt.expected, s.BasePath(), "for input: %s", tt.input)
 	}
 }
+
+func TestServer_GracefulShutdown_HealthProbes503(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr:            ":0",
+		Mode:            "test",
+		ShutdownTimeout: 2 * time.Second,
+		Actuator: httpServer.ActuatorConfig{
+			Enabled:    true,
+			Path:       "/actuator",
+			HealthPath: "/health",
+		},
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	assert.False(t, s.InGracefulShutdown())
+
+	// 1. Before shutdown: Health is 200 OK
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/actuator/health", nil)
+	s.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// 2. Trigger Shutdown
+	err := s.Shutdown(context.Background())
+	assert.NoError(t, err)
+	assert.True(t, s.InGracefulShutdown())
+
+	// 3. After shutdown: Health returns 503 Service Unavailable with DOWN
+	w2 := httptest.NewRecorder()
+	s.ServeHTTP(w2, req)
+	assert.Equal(t, http.StatusServiceUnavailable, w2.Code)
+
+	var resp health.Health
+	err = json.Unmarshal(w2.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, health.StatusDown, resp.Status)
+	assert.Equal(t, "server is shutting down", resp.Details["message"])
+
+	// Liveness probe also returns 503
+	wLive := httptest.NewRecorder()
+	reqLive, _ := http.NewRequest(http.MethodGet, "/actuator/liveness", nil)
+	s.ServeHTTP(wLive, reqLive)
+	assert.Equal(t, http.StatusServiceUnavailable, wLive.Code)
+
+	// Readiness probe also returns 503
+	wReady := httptest.NewRecorder()
+	reqReady, _ := http.NewRequest(http.MethodGet, "/actuator/readiness", nil)
+	s.ServeHTTP(wReady, reqReady)
+	assert.Equal(t, http.StatusServiceUnavailable, wReady.Code)
+}

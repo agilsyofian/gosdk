@@ -9,6 +9,7 @@ type Config struct {
 	WriteTimeout        time.Duration  `mapstructure:"write_timeout" validate:"required"`
 	IdleTimeout         time.Duration  `mapstructure:"idle_timeout" validate:"required"`
 	ShutdownTimeout     time.Duration  `mapstructure:"shutdown_timeout" validate:"required"`
+	ShutdownDelay       time.Duration  `mapstructure:"shutdown_delay"`
 	Mode                string         `mapstructure:"mode" validate:"required"`
 	EnableCors          bool           `mapstructure:"enable_cors"`
 	EnableSwagger       bool           `mapstructure:"enable_swagger"`
