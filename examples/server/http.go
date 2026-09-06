@@ -14,7 +14,6 @@ import (
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/agilsyofian/gosdk/transport/server/http"
-	ginsecurity "github.com/agilsyofian/gosdk/transport/server/http/security"
 )
 
 type IHttpHandler interface {
@@ -52,12 +51,10 @@ func (h *HttpHandler) SetupRouter() {
 	// Register some custom health checks
 	h.health.Register("example_check", &exampleHealthCheck{})
 
-	r := h.server.Router()
+	// Wire security manager using declarative config from env.yaml (server.http.security)
+	h.server.SetSecurityManager(h.security)
 
-	jwtSecurity := ginsecurity.New(h.security, ginsecurity.Config{
-		Required:     true,
-		EnableBearer: true,
-	})
+	r := h.server.Router()
 
 	sigMiddleware := createSignatureMiddleware(h.appConfig.Server.HttpServer.Signature)
 
@@ -90,7 +87,7 @@ func (h *HttpHandler) SetupRouter() {
 			h.authHandler.Password,
 		)
 		auth.POST("/logout",
-			jwtSecurity.Middleware(),
+			h.server.SecurityMiddleware(),
 			h.authHandler.Logout,
 		)
 		auth.POST("/refresh",
@@ -101,14 +98,14 @@ func (h *HttpHandler) SetupRouter() {
 	user := v1.Group("/user")
 	{
 		user.GET("/detail",
-			jwtSecurity.Middleware(),
-			jwtSecurity.RequirePermission("user:read"),
+			h.server.SecurityMiddleware(),
+			h.server.RequirePermission("user:read"),
 			h.userHandler.UserDetail,
 		)
 		user.GET("/update",
 			sigMiddleware,
-			jwtSecurity.Middleware(),
-			jwtSecurity.RequirePermission("user:update"),
+			h.server.SecurityMiddleware(),
+			h.server.RequirePermission("user:update"),
 			h.userHandler.Update,
 		)
 	}

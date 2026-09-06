@@ -4,6 +4,7 @@ import (
 	"time"
 
 	coremetadata "github.com/agilsyofian/gosdk/core/metadata"
+	httpsecurity "github.com/agilsyofian/gosdk/transport/server/http/security"
 )
 
 type Config struct {
@@ -21,6 +22,7 @@ type Config struct {
 	DisableBlockSpecialChars   bool                  `mapstructure:"disable_block_special_chars"`
 	AllowedSpecialCharsRegex   string                `mapstructure:"allowed_special_chars_regex"`
 	SecurityHeaders            SecurityHeadersConfig `mapstructure:"security_headers"`
+	Security                   *httpsecurity.Config  `mapstructure:"security"`
 	Metadata                   coremetadata.Config   `mapstructure:"metadata"`
 	Idempotency                IdempotencyConfig     `mapstructure:"idempotency"`
 	Signature                  SignatureConfig       `mapstructure:"signature"`
@@ -29,6 +31,9 @@ type Config struct {
 	LoggerExcludeRoutes        []string              `mapstructure:"logger_exclude_routes"`
 	Actuator                   ActuatorConfig        `mapstructure:"actuator"`
 }
+
+// SecurityConfig defines declarative authentication and credential extraction rules.
+type SecurityConfig = httpsecurity.Config
 
 // MetadataConfig defines declarative header mapping and capture rules.
 type MetadataConfig = coremetadata.Config

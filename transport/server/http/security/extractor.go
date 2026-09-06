@@ -23,34 +23,34 @@ type Config struct {
 	// requests are allowed through with no SecurityContext in the
 	// request context -- handlers should check core.FromContext
 	// themselves when Required is false.
-	Required bool
+	Required bool `mapstructure:"required"`
 
 	// SessionCookie is the name of the cookie holding a session ID,
 	// e.g. "SESSION_ID". Leave empty to disable cookie-based session
 	// extraction.
-	SessionCookie string
+	SessionCookie string `mapstructure:"session_cookie"`
 
 	// EnableBearer enables extraction of "Authorization: Bearer
 	// <token>".
-	EnableBearer bool
+	EnableBearer bool `mapstructure:"enable_bearer"`
 
 	// EnableBasic enables extraction of "Authorization: Basic
 	// <base64>".
-	EnableBasic bool
+	EnableBasic bool `mapstructure:"enable_basic"`
 
 	// EnableAPIKey enables extraction of the API key header (see
 	// APIKeyHeader).
-	EnableAPIKey bool
+	EnableAPIKey bool `mapstructure:"enable_api_key"`
 
 	// APIKeyHeader is the header name used for API key extraction.
 	// Defaults to "X-API-Key" if empty.
-	APIKeyHeader string
+	APIKeyHeader string `mapstructure:"api_key_header"`
 
 	// AllowedTypes, if non-empty, restricts which CredentialTypes this
 	// middleware instance will accept, regardless of which Enable*
 	// flags are set. Useful for route groups that should only accept
 	// e.g. session or API key auth.
-	AllowedTypes []security.CredentialType
+	AllowedTypes []security.CredentialType `mapstructure:"allowed_types"`
 }
 
 func (c Config) apiKeyHeader() string {

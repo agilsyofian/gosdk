@@ -16,7 +16,9 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
+	securityCore "github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/transport/server/http/middleware"
+	httpSecurity "github.com/agilsyofian/gosdk/transport/server/http/security"
 	"github.com/gin-gonic/gin"
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
@@ -31,7 +33,10 @@ type Server struct {
 	engine             *gin.Engine
 	baseRouter         gin.IRouter
 	basePath           string
+	cfg                Config
 	healthRegistry     health.Registry
+	securityManager    securityCore.SecurityManager
+	securityMiddleware *httpSecurity.Middleware
 	shutdownTimeout    time.Duration
 	shutdownDelay      time.Duration
 	inGracefulShutdown atomic.Bool
@@ -148,6 +153,7 @@ func NewServer(
 		engine:          engine,
 		baseRouter:      baseRouter,
 		basePath:        basePath,
+		cfg:             cfg,
 		healthRegistry:  hr,
 		shutdownTimeout: cfg.ShutdownTimeout,
 		shutdownDelay:   cfg.ShutdownDelay,
@@ -323,6 +329,62 @@ func (s *Server) Group(relativePath string, handlers ...gin.HandlerFunc) *gin.Ro
 
 func (s *Server) HealthRegistry() health.Registry {
 	return s.healthRegistry
+}
+
+// SetSecurityManager binds a SecurityManager to the HTTP server, configured either by s.cfg.Security or the optional override cfgs.
+func (s *Server) SetSecurityManager(mgr securityCore.SecurityManager, cfgs ...httpSecurity.Config) {
+	s.securityManager = mgr
+	var cfg httpSecurity.Config
+	if len(cfgs) > 0 {
+		cfg = cfgs[0]
+	} else if s.cfg.Security != nil {
+		cfg = *s.cfg.Security
+	}
+	s.securityMiddleware = httpSecurity.New(mgr, cfg)
+}
+
+// SecurityMiddleware returns a Gin authentication middleware for route groups or individual endpoints.
+// If cfgs are provided, it uses that specific configuration; otherwise it uses the configuration established via SetSecurityManager or s.cfg.Security.
+func (s *Server) SecurityMiddleware(cfgs ...httpSecurity.Config) gin.HandlerFunc {
+	if len(cfgs) > 0 {
+		var mgr securityCore.SecurityManager
+		if s.securityManager != nil {
+			mgr = s.securityManager
+		}
+		return httpSecurity.New(mgr, cfgs[0]).Middleware()
+	}
+	if s.securityMiddleware != nil {
+		return s.securityMiddleware.Middleware()
+	}
+	if s.securityManager != nil {
+		var cfg httpSecurity.Config
+		if s.cfg.Security != nil {
+			cfg = *s.cfg.Security
+		}
+		s.securityMiddleware = httpSecurity.New(s.securityManager, cfg)
+		return s.securityMiddleware.Middleware()
+	}
+	return func(c *gin.Context) {
+		c.Next()
+	}
+}
+
+// RequirePermission returns a Gin authorization middleware enforcing a permission check on the authenticated principal.
+func (s *Server) RequirePermission(permission string) gin.HandlerFunc {
+	if s.securityMiddleware != nil {
+		return s.securityMiddleware.RequirePermission(permission)
+	}
+	if s.securityManager != nil {
+		var cfg httpSecurity.Config
+		if s.cfg.Security != nil {
+			cfg = *s.cfg.Security
+		}
+		s.securityMiddleware = httpSecurity.New(s.securityManager, cfg)
+		return s.securityMiddleware.RequirePermission(permission)
+	}
+	return func(c *gin.Context) {
+		c.Next()
+	}
 }
 
 func (s *Server) Start() error {

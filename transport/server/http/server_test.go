@@ -13,7 +13,9 @@ import (
 	coremetadata "github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	securityCore "github.com/agilsyofian/gosdk/security"
 	httpServer "github.com/agilsyofian/gosdk/transport/server/http"
+	httpSecurity "github.com/agilsyofian/gosdk/transport/server/http/security"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/fx/fxtest"
@@ -561,4 +563,150 @@ func TestServer_MetadataExtraction(t *testing.T) {
 	assert.NotNil(t, extractedMeta)
 	assert.Equal(t, "trace-777", extractedMeta.TraceID)
 	assert.Equal(t, "tenant-pegadaian", extractedMeta.Get("x-tenant-id"))
+}
+
+type testMockSecurityManager struct {
+	authFunc      func(ctx context.Context, cred securityCore.Credential) (*securityCore.SecurityContext, error)
+	authorizeFunc func(ctx context.Context, permission string) error
+}
+
+func (m *testMockSecurityManager) Authenticate(ctx context.Context, cred securityCore.Credential) (*securityCore.SecurityContext, error) {
+	if m.authFunc != nil {
+		return m.authFunc(ctx, cred)
+	}
+	return &securityCore.SecurityContext{
+		Authenticated: true,
+		Principal:     &securityCore.Principal{Subject: "user-123"},
+	}, nil
+}
+
+func (m *testMockSecurityManager) AuthenticateSession(ctx context.Context, sessionID string) (*securityCore.SecurityContext, error) {
+	return &securityCore.SecurityContext{
+		Authenticated: true,
+		Principal:     &securityCore.Principal{Subject: "user-session"},
+	}, nil
+}
+
+func (m *testMockSecurityManager) Authorize(ctx context.Context, permission string) error {
+	if m.authorizeFunc != nil {
+		return m.authorizeFunc(ctx, permission)
+	}
+	return nil
+}
+
+func TestServer_SecurityMiddleware_DeclarativeConfig(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr:            ":0",
+		ReadTimeout:     5 * time.Second,
+		WriteTimeout:    5 * time.Second,
+		IdleTimeout:     5 * time.Second,
+		ShutdownTimeout: 5 * time.Second,
+		Mode:            "test",
+		Security: &httpSecurity.Config{
+			Required:     true,
+			EnableBearer: true,
+		},
+	}
+
+	s := httpServer.NewServer("sec-test-app", lc, l, cfg, nil, nil)
+	mgr := &testMockSecurityManager{}
+	s.SetSecurityManager(mgr)
+
+	var authenticatedSubject string
+	s.GET("/protected", s.SecurityMiddleware(), func(c *gin.Context) {
+		secCtx, ok := securityCore.FromContext(c.Request.Context())
+		if ok && secCtx != nil && secCtx.Principal != nil {
+			authenticatedSubject = secCtx.Principal.Subject
+		}
+		c.String(http.StatusOK, "welcome")
+	})
+
+	// 1. Missing auth header -> 401 Unauthorized
+	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	// 2. Valid Bearer token -> 200 OK & subject injected
+	req, _ = http.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer valid-token-abc")
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "user-123", authenticatedSubject)
+}
+
+func TestServer_SecurityMiddleware_RequirePermission(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr:            ":0",
+		ReadTimeout:     5 * time.Second,
+		WriteTimeout:    5 * time.Second,
+		IdleTimeout:     5 * time.Second,
+		ShutdownTimeout: 5 * time.Second,
+		Mode:            "test",
+	}
+
+	s := httpServer.NewServer("perm-test-app", lc, l, cfg, nil, nil)
+	allowed := true
+	mgr := &testMockSecurityManager{
+		authorizeFunc: func(ctx context.Context, permission string) error {
+			if !allowed {
+				return securityCore.ErrForbidden
+			}
+			return nil
+		},
+	}
+	s.SetSecurityManager(mgr, httpSecurity.Config{
+		Required:     true,
+		EnableBearer: true,
+	})
+
+	s.GET("/admin", s.SecurityMiddleware(), s.RequirePermission("admin:access"), func(c *gin.Context) {
+		c.String(http.StatusOK, "admin-dashboard")
+	})
+
+	// Allowed permission
+	req, _ := http.NewRequest(http.MethodGet, "/admin", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "admin-dashboard", w.Body.String())
+
+	// Forbidden permission -> 403
+	allowed = false
+	req, _ = http.NewRequest(http.MethodGet, "/admin", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestServer_PackageLevelSecurityHelpers(t *testing.T) {
+	mgr := &testMockSecurityManager{}
+
+	secMw := httpServer.Security(mgr, httpSecurity.Config{
+		Required:     true,
+		EnableBearer: true,
+	})
+	permMw := httpServer.RequirePermission(mgr, "read:users")
+
+	r := gin.New()
+	r.GET("/api/users", secMw, permMw, func(c *gin.Context) {
+		c.String(http.StatusOK, "users-list")
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/api/users", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "users-list", w.Body.String())
 }

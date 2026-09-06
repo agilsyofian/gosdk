@@ -69,6 +69,14 @@ func (m *Middleware) RequirePermission(permission string) gin.HandlerFunc {
 // abort maps a security error to an HTTP status/body and aborts the
 // request. See security's error semantics for the canonical mapping.
 func (m *Middleware) abort(c *gin.Context, err error) {
+	var appErr *coreErr.AppError
+	if !errors.As(err, &appErr) {
+		if errors.Is(err, security.ErrForbidden) {
+			err = coreErr.Forbidden(err, "security", "403", "Forbidden")
+		} else {
+			err = coreErr.Unauthorized(err, "security", "401", "Unauthorized")
+		}
+	}
 	_ = c.Error(err)
 	c.Abort()
 }
