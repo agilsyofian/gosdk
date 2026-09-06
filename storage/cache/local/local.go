@@ -13,7 +13,6 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/storage/cache"
-	"go.uber.org/fx"
 )
 
 // Ensure Cache implements cache.Cache interface
@@ -45,10 +44,9 @@ type Cache struct {
 	closeOnce sync.Once
 }
 
-// NewLocalCache creates a new instance of LocalCache.
+// NewLocalCache creates a new instance of LocalCache in Pure Go.
 // If health.Registry is provided, it automatically registers a readiness check for LocalCache.
 func NewLocalCache(
-	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 	hrs ...health.Registry,
@@ -75,26 +73,10 @@ func NewLocalCache(
 		go c.startJanitor(cfg.CleanupInterval)
 	}
 
-	if lc != nil {
-		lc.Append(fx.Hook{
-			OnStart: func(ctx context.Context) error {
-				if l != nil {
-					l.Info(ctx, "local cache initialized", logger.LogPayload{
-						Type:   "STORAGE_LOCAL",
-						Method: "START",
-					})
-				}
-				return nil
-			},
-			OnStop: func(ctx context.Context) error {
-				if l != nil {
-					l.Info(ctx, "stopping local cache", logger.LogPayload{
-						Type:   "STORAGE_LOCAL",
-						Method: "SHUTDOWN",
-					})
-				}
-				return c.Close(ctx)
-			},
+	if l != nil {
+		l.Info(ctx, "local cache initialized", logger.LogPayload{
+			Type:   "STORAGE_LOCAL",
+			Method: "START",
 		})
 	}
 
@@ -332,7 +314,10 @@ func (c *Cache) Close(ctx context.Context) error {
 	})
 
 	if c.logger != nil {
-		c.logger.Info(ctx, "closing local cache", logger.LogPayload{})
+		c.logger.Info(ctx, "stopping local cache", logger.LogPayload{
+			Type:   "STORAGE_LOCAL",
+			Method: "SHUTDOWN",
+		})
 	}
 	return nil
 }

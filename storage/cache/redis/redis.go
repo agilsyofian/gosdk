@@ -12,7 +12,6 @@ import (
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/fx"
 )
 
 // Ensure Cache implements cache.Cache interface
@@ -27,16 +26,17 @@ type Cache struct {
 	client  redis.UniversalClient
 	logger  logger.Logger
 	appName string
+	cfg     Config
 }
 
-// NewRedisCache creates a new instance of RedisCache.
+// NewRedisCache creates a new instance of RedisCache in Pure Go.
+// Call Connect(ctx) to test connection and verify reachability, or manage lifecycle via your application container.
 // If health.Registry is provided, it automatically registers a readiness check for Redis.
 // The topology (standalone / cluster / sentinel) is selected automatically from Config.Type:
 //   - standalone: single node, uses Config.DB
 //   - cluster:    multi-node sharding, uses Config.MaxRedirects / routing options
 //   - sentinel:   HA failover, requires Config.MasterName
 func NewRedisCache(
-	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 	hrs ...health.Registry,
@@ -52,37 +52,11 @@ func NewRedisCache(
 	// Add hooks for tracing and logging
 	client.AddHook(NewHook(l, cfg, appName))
 
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-
-			if err := client.Ping(pingCtx).Err(); err != nil {
-				client.Close()
-				return fmt.Errorf("ping redis (%s): %w", cfg.Type, err)
-			}
-
-			l.Info(ctx, "redis connection established", logger.LogPayload{
-				Type:      "STORAGE_REDIS",
-				Method:    "START",
-				IpAddress: fmt.Sprintf("%v", cfg.Addrs),
-				AppName:   appName,
-			})
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			l.Info(ctx, "stopping redis", logger.LogPayload{
-				Type:   "STORAGE_REDIS",
-				Method: "SHUTDOWN",
-			})
-			return client.Close()
-		},
-	})
-
 	c := &Cache{
 		client:  client,
 		logger:  l,
 		appName: appName,
+		cfg:     cfg,
 	}
 
 	for _, hr := range hrs {
@@ -93,6 +67,27 @@ func NewRedisCache(
 	}
 
 	return c, nil
+}
+
+// Connect verifies connectivity to Redis via Ping and logs connection establishment.
+func (c *Cache) Connect(ctx context.Context) error {
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := c.client.Ping(pingCtx).Err(); err != nil {
+		c.client.Close()
+		return fmt.Errorf("ping redis (%s): %w", c.cfg.Type, err)
+	}
+
+	if c.logger != nil {
+		c.logger.Info(ctx, "redis connection established", logger.LogPayload{
+			Type:      "STORAGE_REDIS",
+			Method:    "START",
+			IpAddress: fmt.Sprintf("%v", c.cfg.Addrs),
+			AppName:   c.appName,
+		})
+	}
+	return nil
 }
 
 // Check implements health.Check for Redis readiness.
@@ -339,6 +334,11 @@ func (c *Cache) GetJSON(ctx context.Context, key string, target any) (bool, erro
 
 // Close closes the Redis connection.
 func (c *Cache) Close(ctx context.Context) error {
-	c.logger.Info(ctx, "closing redis connection", logger.LogPayload{})
+	if c.logger != nil {
+		c.logger.Info(ctx, "stopping redis", logger.LogPayload{
+			Type:   "STORAGE_REDIS",
+			Method: "SHUTDOWN",
+		})
+	}
 	return c.client.Close()
 }

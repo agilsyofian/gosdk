@@ -17,7 +17,7 @@ Supports **standalone**, **cluster**, and **sentinel** topologies through a sing
 | Retry | Configurable `MaxRetries` with exponential backoff |
 | JSON helpers | `SetJSON` / `GetJSON` for struct round-trips without boilerplate |
 | Prefix delete | `DeleteByPrefix` using cursor-based `SCAN + DEL` (cluster-safe) |
-| Lifecycle | Integrates with `go.uber.org/fx` — ping on start, graceful close on stop |
+| Lifecycle | Pure Go constructor with Connect(ctx) & Close(ctx); seamlessly integrates into Fx or standard main() |
 
 ---
 
@@ -37,16 +37,25 @@ require github.com/agilsyofian/gosdk/storage/redis <version>
 ```go
 import rediscache "github.com/agilsyofian/gosdk/storage/redis"
 
-cache, err := rediscache.NewRedisCache(lc, logger, rediscache.Config{
+cache, err := rediscache.NewRedisCache(logger, rediscache.Config{
     Type:  rediscache.ModeStandalone,
     Addrs: []string{"localhost:6379"},
 })
+if err != nil {
+    log.Fatal(err)
+}
+
+// Connect verifies connectivity (ping)
+if err := cache.Connect(ctx); err != nil {
+    log.Fatal(err)
+}
+defer cache.Close(ctx)
 ```
 
 ### Cluster
 
 ```go
-cache, err := rediscache.NewRedisCache(lc, logger, rediscache.Config{
+cache, err := rediscache.NewRedisCache(logger, rediscache.Config{
     Type:  rediscache.ModeCluster,
     Addrs: []string{
         "node1:6379",
@@ -59,7 +68,7 @@ cache, err := rediscache.NewRedisCache(lc, logger, rediscache.Config{
 ### Sentinel (High Availability)
 
 ```go
-cache, err := rediscache.NewRedisCache(lc, logger, rediscache.Config{
+cache, err := rediscache.NewRedisCache(logger, rediscache.Config{
     Type:       rediscache.ModeSentinel,
     MasterName: "mymaster",
     Addrs: []string{
@@ -67,6 +76,30 @@ cache, err := rediscache.NewRedisCache(lc, logger, rediscache.Config{
         "sentinel2:26379",
     },
 })
+```
+
+### Uber Fx Integration (Application Layer)
+
+Di level bootstrap aplikasi, daftarkan lifecycle hook Fx:
+
+```go
+fx.Provide(
+    func(lc fx.Lifecycle, l logger.Logger, cfg rediscache.Config, hr health.Registry) (cache.Cache, error) {
+        c, err := rediscache.NewRedisCache(l, cfg, hr)
+        if err != nil {
+            return nil, err
+        }
+        lc.Append(fx.Hook{
+            OnStart: func(ctx context.Context) error {
+                return c.Connect(ctx)
+            },
+            OnStop: func(ctx context.Context) error {
+                return c.Close(ctx)
+            },
+        })
+        return c, nil
+    },
+)
 ```
 
 ---
@@ -191,5 +224,4 @@ Pipeline commands are grouped into a single `REDIS PIPELINE` log entry.
 ```
 go-redis/v9                 — Redis client (UniversalClient supports all topologies)
 go.opentelemetry.io/otel    — Tracing
-go.uber.org/fx              — Lifecycle management
 ```

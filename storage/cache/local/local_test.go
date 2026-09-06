@@ -10,7 +10,6 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/agilsyofian/gosdk/storage/local"
-	"go.uber.org/fx/fxtest"
 )
 
 type mockLogger struct{}
@@ -29,7 +28,7 @@ func newTestCache(t *testing.T, opts ...func(*local.Config)) *local.Cache {
 		opt(&cfg)
 	}
 
-	c, err := local.NewLocalCache(nil, &mockLogger{}, cfg)
+	c, err := local.NewLocalCache(&mockLogger{}, cfg)
 	if err != nil {
 		t.Fatalf("failed to create local cache: %v", err)
 	}
@@ -348,19 +347,16 @@ func TestConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func TestFxLifecycle(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
+func TestPureGoLifecycle(t *testing.T) {
 	cfg := local.DefaultConfig()
 
-	c, err := local.NewLocalCache(lc, &mockLogger{}, cfg)
+	c, err := local.NewLocalCache(&mockLogger{}, cfg)
 	if err != nil {
 		t.Fatalf("failed to create cache: %v", err)
 	}
 	if c == nil {
 		t.Fatal("expected non-nil cache")
 	}
-
-	lc.RequireStart()
 
 	ctx := context.Background()
 	_ = c.Set(ctx, "lifecycle_key", []byte("val"), time.Minute)
@@ -369,5 +365,7 @@ func TestFxLifecycle(t *testing.T) {
 		t.Fatalf("get failed during lifecycle: %v", err)
 	}
 
-	lc.RequireStop()
+	if err := c.Close(ctx); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
 }
