@@ -10,7 +10,6 @@ require (
 	github.com/google/uuid v1.6.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	go.uber.org/fx v1.24.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 )

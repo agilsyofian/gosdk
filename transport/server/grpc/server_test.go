@@ -11,7 +11,6 @@ import (
 	securityCore "github.com/agilsyofian/gosdk/security"
 	grpcSecurity "github.com/agilsyofian/gosdk/transport/server/grpc/security"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/fx/fxtest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -23,7 +22,7 @@ func TestServer_SetServerOptions_Panic(t *testing.T) {
 		Addr: ":0",
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	// This should not panic now as it replaces s.opts and rebuilds
 	s.SetServerOptions(grpc.MaxRecvMsgSize(1024))
@@ -35,7 +34,7 @@ func TestServer_Use_Interceptor(t *testing.T) {
 		Addr: ":0",
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	// This should properly chain interceptors
 	s.Use(func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -49,7 +48,7 @@ func TestServer_UseStream_Interceptor(t *testing.T) {
 		Addr: ":0",
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	s.UseStream(func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		return handler(srv, ss)
@@ -63,7 +62,7 @@ func TestServer_Shutdown_Graceful(t *testing.T) {
 		ShutdownTimeout: 2 * time.Second,
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
@@ -88,7 +87,7 @@ func TestServer_Shutdown_TimeoutFallback(t *testing.T) {
 		ShutdownTimeout: 50 * time.Millisecond,
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	// Register a dummy streaming service that blocks until released
 	blockCh := make(chan struct{})
@@ -174,7 +173,7 @@ func TestServer_ServicePreservationAcrossRebuild(t *testing.T) {
 		ShutdownTimeout: 2 * time.Second,
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	serviceCalled := false
 	sd := &grpc.ServiceDesc{
@@ -256,7 +255,7 @@ func TestServer_PostStartModificationProtection(t *testing.T) {
 		ShutdownTimeout: 2 * time.Second,
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 	s.started = true
 
 	// Modifying options after start should be safely rejected
@@ -295,7 +294,7 @@ func TestServer_ProductionConfig(t *testing.T) {
 		},
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 	assert.NotNil(t, s.Engine())
 	assert.NotNil(t, s.HealthServer())
 }
@@ -307,7 +306,7 @@ func TestServer_HealthCheckingProtocol(t *testing.T) {
 		HealthCheckEnabled: true,
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
@@ -356,7 +355,7 @@ func TestServer_SetHealthRegistry(t *testing.T) {
 		Addr: ":0",
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 	reg := healthcheck.NewRegistry()
 	s.SetHealthRegistry(reg)
 
@@ -399,7 +398,7 @@ func TestServer_SetSecurityManager(t *testing.T) {
 		},
 	}
 
-	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	s := NewServer("test-app", l, cfg, nil)
 	mgr := &mockSecurityManager{}
 	s.SetSecurityManager(mgr)
 

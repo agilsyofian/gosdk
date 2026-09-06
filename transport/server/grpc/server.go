@@ -14,7 +14,6 @@ import (
 	securityCore "github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/transport/server/grpc/interceptor"
 	grpcSecurity "github.com/agilsyofian/gosdk/transport/server/grpc/security"
-	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -47,9 +46,10 @@ type Server struct {
 	inShutdown          atomic.Bool
 }
 
+// NewServer creates an enterprise-ready gRPC server instance.
+// Call s.Start() to listen and serve, and s.Shutdown(ctx) for graceful shutdown.
 func NewServer(
 	appName string,
-	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 	t *tracing.Tracing,
@@ -68,28 +68,6 @@ func NewServer(
 	}
 
 	s.SetServerOptions(opts...)
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			go func() {
-				if err := s.Start(); err != nil {
-					l.Error(ctx, "gRPC server failed to start", logger.LogPayload{
-						Type:      "GRPC_SERVER",
-						Method:    "START",
-						IpAddress: s.addr,
-						Error:     err.Error(),
-					})
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			if t != nil {
-				_ = t.Shutdown(ctx)
-			}
-			return s.Shutdown(ctx)
-		},
-	})
 
 	return s
 }

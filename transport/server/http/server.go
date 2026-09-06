@@ -23,7 +23,6 @@ import (
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.uber.org/fx"
 )
 
 type Server struct {
@@ -46,7 +45,6 @@ type Server struct {
 
 func NewServer(
 	appName string,
-	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 	t *tracing.Tracing,
@@ -160,8 +158,6 @@ func NewServer(
 		cancelOngoing:   cancelOngoing,
 	}
 
-	registerLifecycle(lc, s, t, l)
-
 	return s
 }
 
@@ -240,27 +236,6 @@ func defaultIfEmpty(val, def string) string {
 		return def
 	}
 	return val
-}
-
-func registerLifecycle(lc fx.Lifecycle, s *Server, t *tracing.Tracing, l logger.Logger) {
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			s.startSignalWatcher()
-			go func() {
-				if err := s.Start(); err != nil {
-					l.Error(ctx, "http server failed to start", logger.LogPayload{})
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			s.stopSignalWatcherOnce()
-			if t != nil {
-				_ = t.Shutdown(ctx)
-			}
-			return s.Shutdown(ctx)
-		},
-	})
 }
 
 func (s *Server) startSignalWatcher() {
@@ -388,6 +363,7 @@ func (s *Server) RequirePermission(permission string) gin.HandlerFunc {
 }
 
 func (s *Server) Start() error {
+	s.startSignalWatcher()
 	s.logger.Info(context.Background(), "starting http server", logger.LogPayload{
 		Type:      "HTTP_SERVER",
 		Method:    "START",

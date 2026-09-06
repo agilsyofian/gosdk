@@ -167,31 +167,54 @@ server:
 
 ### 1. Server Initialization (with Uber Fx)
 
-Initialize the server cleanly via Uber Fx dependency injection:
+Initialize the server in Pure Go, or wire it into Uber Fx at the application bootstrap level:
 
 ```go
 package main
 
 import (
+    "context"
     "github.com/agilsyofian/gosdk/core/observability/health"
     "github.com/agilsyofian/gosdk/core/observability/tracing"
     "github.com/agilsyofian/gosdk/core/observability/logger"
     "github.com/agilsyofian/gosdk/transport/server/http"
-    "go.uber.org/fx"
 )
 
 func main() {
-    fx.New(
-        fx.Provide(
-            NewConfig,
-            logger.New,
-            tracing.New,
-            health.New,
-            http.NewServer,
-        ),
-        fx.Invoke(RegisterRoutes),
-    ).Run()
+    // Pure Go constructor — zero framework coupling
+    server := http.NewServer("my-app", loggerInstance, configInstance, tracerInstance, healthRegistry)
+    
+    // Register routes
+    server.GET("/health", healthHandler)
+
+    // Start server in background
+    go server.Start()
+
+    // Graceful shutdown on termination signal
+    defer server.Shutdown(context.Background())
 }
+```
+
+#### Wiring with Uber Fx (at Application Bootstrap Level)
+```go
+fx.Provide(
+    func(lc fx.Lifecycle, appName string, l logger.Logger, cfg http.Config, t *tracing.Tracing, hr health.Registry) *http.Server {
+        s := http.NewServer(appName, l, cfg, t, hr)
+        lc.Append(fx.Hook{
+            OnStart: func(ctx context.Context) error {
+                go func() { _ = s.Start() }()
+                return nil
+            },
+            OnStop: func(ctx context.Context) error {
+                if t != nil {
+                    _ = t.Shutdown(ctx)
+                }
+                return s.Shutdown(ctx)
+            },
+        })
+        return s
+    },
+)
 ```
 
 ---

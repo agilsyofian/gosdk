@@ -18,11 +18,9 @@ import (
 	httpSecurity "github.com/agilsyofian/gosdk/transport/server/http/security"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/fx/fxtest"
 )
 
 func TestServer_Actuator_HealthProbes(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 	reg := health.NewRegistry()
 
@@ -41,7 +39,7 @@ func TestServer_Actuator_HealthProbes(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, reg)
+	s := httpServer.NewServer("test-app", l, cfg, nil, reg)
 
 	// 1. Initial State: All UP
 	w := httptest.NewRecorder()
@@ -93,7 +91,6 @@ func TestServer_Actuator_HealthProbes(t *testing.T) {
 }
 
 func TestServer_Actuator_NilHealthRegistryFallback(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -107,7 +104,7 @@ func TestServer_Actuator_NilHealthRegistryFallback(t *testing.T) {
 	}
 
 	// hr is passed as nil
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	assert.NotNil(t, s.HealthRegistry())
 
 	w := httptest.NewRecorder()
@@ -117,7 +114,6 @@ func TestServer_Actuator_NilHealthRegistryFallback(t *testing.T) {
 }
 
 func TestServer_BasePath(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -131,7 +127,7 @@ func TestServer_BasePath(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	assert.Equal(t, "/api/v1", s.BasePath())
 	assert.NotNil(t, s.BaseRouter())
 
@@ -186,7 +182,6 @@ func TestServer_BasePath(t *testing.T) {
 }
 
 func TestServer_BasePath_Normalization(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	tests := []struct {
@@ -209,13 +204,12 @@ func TestServer_BasePath_Normalization(t *testing.T) {
 			Mode:     "test",
 			BasePath: tt.input,
 		}
-		s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+		s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 		assert.Equal(t, tt.expected, s.BasePath(), "for input: %s", tt.input)
 	}
 }
 
 func TestServer_GracefulShutdown_HealthProbes503(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -229,7 +223,7 @@ func TestServer_GracefulShutdown_HealthProbes503(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	assert.False(t, s.InGracefulShutdown())
 
 	// 1. Before shutdown: Health is 200 OK
@@ -268,7 +262,6 @@ func TestServer_GracefulShutdown_HealthProbes503(t *testing.T) {
 }
 
 func TestServer_CORS(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -282,7 +275,7 @@ func TestServer_CORS(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	s.GET("/test-cors", func(c *gin.Context) {
 		c.String(http.StatusOK, "cors ok")
 	})
@@ -311,7 +304,6 @@ func TestServer_CORS(t *testing.T) {
 }
 
 func TestServer_BlockMethodOverride(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -319,7 +311,7 @@ func TestServer_BlockMethodOverride(t *testing.T) {
 		Mode: "test",
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	s.POST("/items", func(c *gin.Context) {
 		c.String(http.StatusOK, "created")
 	})
@@ -349,7 +341,7 @@ func TestServer_BlockMethodOverride(t *testing.T) {
 		Mode:                       "test",
 		DisableBlockMethodOverride: true,
 	}
-	sDisabled := httpServer.NewServer("test-app", lc, l, cfgDisabled, nil, nil)
+	sDisabled := httpServer.NewServer("test-app", l, cfgDisabled, nil, nil)
 	sDisabled.POST("/items", func(c *gin.Context) {
 		c.String(http.StatusOK, "created")
 	})
@@ -362,7 +354,6 @@ func TestServer_BlockMethodOverride(t *testing.T) {
 }
 
 func TestServer_BlockJSONSpecialChars(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -370,7 +361,7 @@ func TestServer_BlockJSONSpecialChars(t *testing.T) {
 		Mode: "test",
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	s.POST("/comment", func(c *gin.Context) {
 		c.String(http.StatusOK, "saved")
 	})
@@ -395,7 +386,7 @@ func TestServer_BlockJSONSpecialChars(t *testing.T) {
 		Mode:                     "test",
 		DisableBlockSpecialChars: true,
 	}
-	sDisabled := httpServer.NewServer("test-app", lc, l, cfgDisabled, nil, nil)
+	sDisabled := httpServer.NewServer("test-app", l, cfgDisabled, nil, nil)
 	sDisabled.POST("/comment", func(c *gin.Context) {
 		c.String(http.StatusOK, "saved")
 	})
@@ -408,7 +399,6 @@ func TestServer_BlockJSONSpecialChars(t *testing.T) {
 }
 
 func TestServer_SecurityHeaders(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -416,7 +406,7 @@ func TestServer_SecurityHeaders(t *testing.T) {
 		Mode: "test",
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	s.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
@@ -438,7 +428,6 @@ func TestServer_SecurityHeaders(t *testing.T) {
 }
 
 func TestServer_Idempotency(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -446,7 +435,7 @@ func TestServer_Idempotency(t *testing.T) {
 		Mode: "test",
 	}
 
-	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("test-app", l, cfg, nil, nil)
 	storage := httpServer.NewMemoryIdempotencyStorage()
 
 	callCount := 0
@@ -492,7 +481,6 @@ func TestServer_Idempotency(t *testing.T) {
 }
 
 func TestServer_MiddlewarePipelineOrder_RecoveryAndTracing(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -501,7 +489,7 @@ func TestServer_MiddlewarePipelineOrder_RecoveryAndTracing(t *testing.T) {
 		ShowErrorDetail: true,
 	}
 
-	s := httpServer.NewServer("order-test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("order-test-app", l, cfg, nil, nil)
 
 	s.GET("/panic-route", func(c *gin.Context) {
 		panic("unexpected crash in handler")
@@ -534,7 +522,6 @@ func TestServer_MiddlewarePipelineOrder_RecoveryAndTracing(t *testing.T) {
 }
 
 func TestServer_MetadataExtraction(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -545,7 +532,7 @@ func TestServer_MetadataExtraction(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("meta-test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("meta-test-app", l, cfg, nil, nil)
 
 	var extractedMeta *coremetadata.Metadata
 	s.GET("/test-meta", func(c *gin.Context) {
@@ -595,7 +582,6 @@ func (m *testMockSecurityManager) Authorize(ctx context.Context, permission stri
 }
 
 func TestServer_SecurityMiddleware_DeclarativeConfig(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -611,7 +597,7 @@ func TestServer_SecurityMiddleware_DeclarativeConfig(t *testing.T) {
 		},
 	}
 
-	s := httpServer.NewServer("sec-test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("sec-test-app", l, cfg, nil, nil)
 	mgr := &testMockSecurityManager{}
 	s.SetSecurityManager(mgr)
 
@@ -640,7 +626,6 @@ func TestServer_SecurityMiddleware_DeclarativeConfig(t *testing.T) {
 }
 
 func TestServer_SecurityMiddleware_RequirePermission(t *testing.T) {
-	lc := fxtest.NewLifecycle(t)
 	l := logger.Nop()
 
 	cfg := httpServer.Config{
@@ -652,7 +637,7 @@ func TestServer_SecurityMiddleware_RequirePermission(t *testing.T) {
 		Mode:            "test",
 	}
 
-	s := httpServer.NewServer("perm-test-app", lc, l, cfg, nil, nil)
+	s := httpServer.NewServer("perm-test-app", l, cfg, nil, nil)
 	allowed := true
 	mgr := &testMockSecurityManager{
 		authorizeFunc: func(ctx context.Context, permission string) error {

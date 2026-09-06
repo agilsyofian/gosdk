@@ -15,7 +15,6 @@ import (
 	serverGrpc "github.com/agilsyofian/gosdk/transport/server/grpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/fx/fxtest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -61,7 +60,7 @@ func TestGrpcHandler_SetupServer_WiresHealthAndSecurity(t *testing.T) {
 	cfg := serverGrpc.DefaultConfig()
 	cfg.Addr = "127.0.0.1:0"
 
-	srv := serverGrpc.NewServer("example-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	srv := serverGrpc.NewServer("example-app", l, cfg, nil)
 	healthReg := health.NewRegistry()
 	secMgr := &mockSecurityManager{}
 	userHandler := &dummyUserServer{}
@@ -137,7 +136,7 @@ func TestGrpcHandler_FullInvocationWithSecurityAndHealth(t *testing.T) {
 	cfg := serverGrpc.DefaultConfig()
 	cfg.Addr = "127.0.0.1:0"
 
-	srv := serverGrpc.NewServer("example-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	srv := serverGrpc.NewServer("example-app", l, cfg, nil)
 	healthReg := health.NewRegistry()
 	secMgr := &mockSecurityManager{}
 	userHandler := &dummyUserServer{}

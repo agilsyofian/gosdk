@@ -114,14 +114,41 @@ server:
 
 ## 🛠️ Usage Guide
 
-### 1. Server Initialization with Uber Fx
+### 1. Server Initialization
 
-Initialize and manage the server lifecycle cleanly through dependency injection:
+Initialize in Pure Go without framework dependencies, or wire into Uber Fx at the application bootstrap level:
 
+```go
+package main
+
+import (
+    "context"
+    "github.com/agilsyofian/gosdk/transport/server/grpc"
+)
+
+func main() {
+    // Pure Go constructor — zero framework coupling
+    server := grpc.NewServer("my-service", loggerInstance, configInstance, tracerInstance)
+
+    // Register proto services
+    user.RegisterServiceUserServer(server.Engine(), userHandler)
+
+    // Start server in background
+    go server.Start()
+
+    // Graceful shutdown on termination signal
+    defer server.Shutdown(context.Background())
+}
+```
+
+#### Wiring with Uber Fx (at Application Bootstrap Level)
 ```go
 package bootstrap
 
 import (
+    "context"
+    "github.com/agilsyofian/gosdk/core/observability/logger"
+    "github.com/agilsyofian/gosdk/core/observability/tracing"
     "github.com/agilsyofian/gosdk/transport/server/grpc"
     "go.uber.org/fx"
 )
@@ -132,7 +159,22 @@ var Server = fx.Module("server",
             return cfg.Server.GrpcServer
         },
         fx.Annotate(
-            grpc.NewServer,
+            func(lc fx.Lifecycle, appName string, l logger.Logger, cfg grpc.Config, t *tracing.Tracing) *grpc.Server {
+                s := grpc.NewServer(appName, l, cfg, t)
+                lc.Append(fx.Hook{
+                    OnStart: func(ctx context.Context) error {
+                        go func() { _ = s.Start() }()
+                        return nil
+                    },
+                    OnStop: func(ctx context.Context) error {
+                        if t != nil {
+                            _ = t.Shutdown(ctx)
+                        }
+                        return s.Shutdown(ctx)
+                    },
+                })
+                return s
+            },
             fx.ParamTags(`name:"appName"`),
         ),
     ),
