@@ -8,11 +8,11 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/storage/cache"
+	"github.com/agilsyofian/gosdk/storage/cache/redis"
 	"github.com/agilsyofian/gosdk/storage/database"
+	"github.com/agilsyofian/gosdk/storage/database/postgres"
 	"github.com/agilsyofian/gosdk/storage/objectstorage"
 	"github.com/agilsyofian/gosdk/storage/objectstorage/s3"
-	"github.com/agilsyofian/gosdk/storage/postgres"
-	"github.com/agilsyofian/gosdk/storage/redis"
 	"go.uber.org/fx"
 )
 

@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/storage/mysql
+module github.com/agilsyofian/gosdk/storage/database/mysql
 
 go 1.26.8
 

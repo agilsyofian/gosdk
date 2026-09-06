@@ -3,23 +3,16 @@ module github.com/agilsyofian/gosdk/transport/server/grpc
 go 1.26.8
 
 require (
-	github.com/agilsyofian/gosdk/core/metadata v0.0.1
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
-	github.com/agilsyofian/gosdk/security v0.0.1
-	github.com/agilsyofian/gosdk/transport/idempotency v0.0.1
+	github.com/agilsyofian/gosdk/core/metadata v1.0.0
+	github.com/agilsyofian/gosdk/core/observability v1.0.0
+	github.com/agilsyofian/gosdk/security v1.0.0
+	github.com/agilsyofian/gosdk/transport/idempotency v1.0.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
-)
-
-replace (
-	github.com/agilsyofian/gosdk/core/metadata => ./../../../core/metadata
-	github.com/agilsyofian/gosdk/core/observability => ./../../../core/observability
-	github.com/agilsyofian/gosdk/security => ./../../../security
-	github.com/agilsyofian/gosdk/transport/idempotency => ./../../idempotency
 )
 
 require (

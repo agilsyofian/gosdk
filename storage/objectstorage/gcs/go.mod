@@ -4,8 +4,8 @@ go 1.26.8
 
 require (
 	cloud.google.com/go/storage v1.62.3
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
-	github.com/agilsyofian/gosdk/storage/objectstorage v0.0.1
+	github.com/agilsyofian/gosdk/core/observability v1.0.0
+	github.com/agilsyofian/gosdk/storage/objectstorage v1.0.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
@@ -66,9 +66,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-)
-
-replace (
-	github.com/agilsyofian/gosdk/core/observability => ./../../../core/observability
-	github.com/agilsyofian/gosdk/storage/objectstorage => ./..
 )

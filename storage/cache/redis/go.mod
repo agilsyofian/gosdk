@@ -1,18 +1,13 @@
-module github.com/agilsyofian/gosdk/storage/redis
+module github.com/agilsyofian/gosdk/storage/cache/redis
 
 go 1.26.8
 
 require (
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
-	github.com/agilsyofian/gosdk/storage/cache v0.0.0
+	github.com/agilsyofian/gosdk/core/observability v1.0.0
+	github.com/agilsyofian/gosdk/storage/cache v1.0.0
 	github.com/redis/go-redis/v9 v9.22.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-)
-
-replace (
-	github.com/agilsyofian/gosdk/core/observability => ./../../../core/observability
-	github.com/agilsyofian/gosdk/storage/cache => ./../../cache
 )
 
 require (

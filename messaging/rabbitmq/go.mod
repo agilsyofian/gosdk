@@ -2,10 +2,8 @@ module github.com/agilsyofian/gosdk/messaging/rabbitmq
 
 go 1.26.8
 
-replace github.com/agilsyofian/gosdk/core/observability => ./../../core/observability
-
 require (
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
+	github.com/agilsyofian/gosdk/core/observability v1.0.0
 )
 
 require (

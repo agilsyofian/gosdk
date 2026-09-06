@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/storage/oracle
+module github.com/agilsyofian/gosdk/storage/database/oracle
 
 go 1.26.8
 

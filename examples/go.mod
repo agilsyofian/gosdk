@@ -14,11 +14,11 @@ replace (
 	github.com/agilsyofian/gosdk/security/jwks => ./../security/jwks
 	github.com/agilsyofian/gosdk/security/session/redis => ./../security/session/redis
 	github.com/agilsyofian/gosdk/storage/cache => ./../storage/cache
+	github.com/agilsyofian/gosdk/storage/cache/redis => ./../storage/cache/redis
 	github.com/agilsyofian/gosdk/storage/database => ./../storage/database
+	github.com/agilsyofian/gosdk/storage/database/postgres => ./../storage/database/postgres
 	github.com/agilsyofian/gosdk/storage/objectstorage => ./../storage/objectstorage
 	github.com/agilsyofian/gosdk/storage/objectstorage/s3 => ./../storage/objectstorage/s3
-	github.com/agilsyofian/gosdk/storage/postgres => ./../storage/database/postgres
-	github.com/agilsyofian/gosdk/storage/redis => ./../storage/cache/redis
 	github.com/agilsyofian/gosdk/tools/mapgen => ./../tools/mapgen
 	github.com/agilsyofian/gosdk/transport/client/grpc => ./../transport/client/grpc
 	github.com/agilsyofian/gosdk/transport/client/http => ./../transport/client/http
@@ -28,26 +28,26 @@ replace (
 )
 
 require (
-	github.com/agilsyofian/gosdk/core/errors v0.0.1
-	github.com/agilsyofian/gosdk/core/metadata v0.0.1
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
-	github.com/agilsyofian/gosdk/core/resilience v0.0.1 // indirect
-	github.com/agilsyofian/gosdk/security v0.0.1
-	github.com/agilsyofian/gosdk/security/authenticator/jwt v0.0.1
-	github.com/agilsyofian/gosdk/security/jwks v0.0.1
-	github.com/agilsyofian/gosdk/security/session/redis v0.0.1
-	github.com/agilsyofian/gosdk/storage/cache v0.0.1
-	github.com/agilsyofian/gosdk/storage/database v0.0.1
-	github.com/agilsyofian/gosdk/storage/objectstorage v0.0.1
-	github.com/agilsyofian/gosdk/storage/objectstorage/s3 v0.0.1
-	github.com/agilsyofian/gosdk/storage/postgres v0.0.1
-	github.com/agilsyofian/gosdk/storage/redis v0.0.1
-	github.com/agilsyofian/gosdk/tools/mapgen v0.0.1
-	github.com/agilsyofian/gosdk/transport/client/grpc v0.0.1
-	github.com/agilsyofian/gosdk/transport/client/http v0.0.1
-	github.com/agilsyofian/gosdk/transport/server/grpc v0.0.1
-	github.com/agilsyofian/gosdk/transport/server/http v0.0.1
-	github.com/agilsyofian/gosdk/utils v0.0.1
+	github.com/agilsyofian/gosdk/core/errors v1.0.0
+	github.com/agilsyofian/gosdk/core/metadata v1.0.0
+	github.com/agilsyofian/gosdk/core/observability v1.0.0
+	github.com/agilsyofian/gosdk/core/resilience v1.0.0 // indirect
+	github.com/agilsyofian/gosdk/security v1.0.0
+	github.com/agilsyofian/gosdk/security/authenticator/jwt v1.0.0
+	github.com/agilsyofian/gosdk/security/jwks v1.0.0
+	github.com/agilsyofian/gosdk/security/session/redis v1.0.0
+	github.com/agilsyofian/gosdk/storage/cache v1.0.0
+	github.com/agilsyofian/gosdk/storage/cache/redis v1.0.0
+	github.com/agilsyofian/gosdk/storage/database v1.0.0
+	github.com/agilsyofian/gosdk/storage/database/postgres v1.0.0
+	github.com/agilsyofian/gosdk/storage/objectstorage v1.0.0
+	github.com/agilsyofian/gosdk/storage/objectstorage/s3 v1.0.0
+	github.com/agilsyofian/gosdk/tools/mapgen v1.0.0
+	github.com/agilsyofian/gosdk/transport/client/grpc v1.0.0
+	github.com/agilsyofian/gosdk/transport/client/http v1.0.0
+	github.com/agilsyofian/gosdk/transport/server/grpc v1.0.0
+	github.com/agilsyofian/gosdk/transport/server/http v1.0.0
+	github.com/agilsyofian/gosdk/utils v1.0.0
 )
 
 require (
@@ -137,7 +137,9 @@ require (
 )
 
 require (
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gin-contrib/cors v1.7.8 // indirect
+	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-openapi/swag/conv v0.29.1 // indirect
 	github.com/go-openapi/swag/jsonutils v0.29.1 // indirect
 	github.com/go-openapi/swag/loading v0.29.1 // indirect
@@ -146,6 +148,10 @@ require (
 	github.com/go-openapi/swag/typeutils v0.29.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.29.1 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
+	github.com/minio/crc64nvme v1.0.1 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/minio/minio-go/v7 v7.0.88 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
+	github.com/rs/xid v1.6.0 // indirect
 	golang.org/x/mod v0.40.0 // indirect
 )

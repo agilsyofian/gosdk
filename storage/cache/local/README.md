@@ -24,7 +24,7 @@ In-memory thread-safe cache backend implementing the [`cache.Cache`](../cache.go
 
 ```go
 // go.mod
-require github.com/agilsyofian/gosdk/storage/local <version>
+require github.com/agilsyofian/gosdk/storage/cache/local <version>
 ```
 
 ---
@@ -37,7 +37,7 @@ import (
     "time"
 
     "github.com/agilsyofian/gosdk/core/observability/logger"
-    localcache "github.com/agilsyofian/gosdk/storage/local"
+    localcache "github.com/agilsyofian/gosdk/storage/cache/local"
 )
 
 func main() {

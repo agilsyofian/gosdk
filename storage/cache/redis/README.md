@@ -25,7 +25,7 @@ Supports **standalone**, **cluster**, and **sentinel** topologies through a sing
 
 ```go
 // go.mod
-require github.com/agilsyofian/gosdk/storage/redis <version>
+require github.com/agilsyofian/gosdk/storage/cache/redis <version>
 ```
 
 ---
@@ -35,7 +35,7 @@ require github.com/agilsyofian/gosdk/storage/redis <version>
 ### Standalone (single node)
 
 ```go
-import rediscache "github.com/agilsyofian/gosdk/storage/redis"
+import rediscache "github.com/agilsyofian/gosdk/storage/cache/redis"
 
 cache, err := rediscache.NewRedisCache(logger, rediscache.Config{
     Type:  rediscache.ModeStandalone,

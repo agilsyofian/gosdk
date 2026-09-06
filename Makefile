@@ -1,29 +1,31 @@
-.PHONY: build test lint vet fmt vuln check tidy
+.PHONY: build test lint vet fmt fmt-fix vuln check tidy
 
 GO       ?= go
-PKG      := ./...
 
 build: ## Build all packages
-	$(GO) build $(PKG)
+	@find . -name "go.mod" -not -path "*/vendor/*" -execdir $(GO) build ./... \;
 
 fmt: ## Check formatting (fails if gofmt would change anything)
 	@test -z "$$(gofmt -l .)" || (echo "gofmt found unformatted files:"; gofmt -l .; exit 1)
 
-vet: ## Run go vet
-	$(GO) vet $(PKG)
+fmt-fix: ## Automatically format all files
+	@gofmt -w .
+
+vet: ## Run go vet across all modules
+	@find . -name "go.mod" -not -path "*/vendor/*" -execdir $(GO) vet ./... \;
 
 lint: fmt vet ## Run gofmt + go vet + golangci-lint
 	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run || \
-		echo "golangci-lint not installed locally — install it before pushing, see .github/instructions/coding-style.md"
+		echo "golangci-lint not installed locally — install it before pushing, see .instructions/coding-style.md"
 
-test: ## Run unit tests (no real network/DB/broker calls; see testing.md)
-	$(GO) test -race -cover $(PKG)
+test: ## Run unit tests across all modules
+	@find . -name "go.mod" -not -path "*/vendor/*" -execdir $(GO) test -race -cover ./... \;
 
-vuln: ## Run govulncheck (see security.md section 7)
-	@command -v govulncheck >/dev/null 2>&1 && govulncheck $(PKG) || \
-		echo "govulncheck not installed locally — install it before pushing, see .github/instructions/security.md"
+vuln: ## Run govulncheck (see .instructions/security.md)
+	@command -v govulncheck >/dev/null 2>&1 && govulncheck ./... || \
+		echo "govulncheck not installed locally"
 
-tidy: ## Tidy workspace and module dependencies
-	$(GO) work sync
+tidy: ## Tidy all module dependencies
+	@find . -name "go.mod" -not -path "*/vendor/*" -execdir $(GO) mod tidy \;
 
-check: lint test vuln ## Run everything required before considering a task complete (see AI_AGENT.md)
+check: lint test vuln ## Run everything required before considering a task complete

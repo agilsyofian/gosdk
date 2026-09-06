@@ -9,7 +9,7 @@ import (
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
-	"github.com/agilsyofian/gosdk/storage/local"
+	"github.com/agilsyofian/gosdk/storage/cache/local"
 )
 
 type mockLogger struct{}

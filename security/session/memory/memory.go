@@ -20,7 +20,7 @@ import (
 // instead. This type performs no eviction beyond lazy expiry checks
 // on read, so it will grow without bound under real traffic.
 type Manager struct {
-	mu          sync.Mutex
+	mu          sync.RWMutex
 	sessions    map[string]*security.Session
 	IDGenerator func() (string, error)
 }
@@ -54,10 +54,10 @@ func (m *Manager) Create(ctx context.Context, sessId string, principal *security
 }
 
 func (m *Manager) Get(ctx context.Context, sessionID string) (*security.Session, error) {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
+	sess, ok := m.sessions[sessionID]
 	if !ok {
 		return nil, security.ErrSessionNotFound
 	}
@@ -69,8 +69,9 @@ func (m *Manager) Get(ctx context.Context, sessionID string) (*security.Session,
 
 func (m *Manager) Delete(ctx context.Context, sessionID string) error {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	delete(m.sessions, sessionID)
-	m.mu.Unlock()
 	return nil
 }
 

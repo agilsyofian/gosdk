@@ -29,15 +29,16 @@ type ZerologLogger struct {
 	maxLength    int
 }
 
-// NewZerologLogger creates a new ZerologLogger instance.
-func NewZerologLogger(config Config) Logger {
-
+func init() {
 	// Global zerolog configuration for standardized field names
 	zerolog.TimeFieldFormat = time.RFC3339
 	zerolog.TimestampFieldName = "time"
 	zerolog.LevelFieldName = "level"
 	zerolog.MessageFieldName = "msg"
+}
 
+// NewZerologLogger creates a new ZerologLogger instance.
+func NewZerologLogger(config Config) Logger {
 	var output io.Writer
 	switch config.Output {
 	case "", "stdout":

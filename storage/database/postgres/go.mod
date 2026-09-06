@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/storage/postgres
+module github.com/agilsyofian/gosdk/storage/database/postgres
 
 go 1.26.8
 

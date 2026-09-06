@@ -66,8 +66,8 @@ gosdk/
 │   │   ├── mysql/
 │   │   ├── oracle/
 │   │   └── postgres/
-│   └── objectstorage/              # placeholder
-│       ├── minio/
+│   └── objectstorage/              # universal interface + S3/MinIO & GCS providers
+│       ├── gcs/
 │       └── s3/
 ├── transport/
 │   ├── client/
@@ -89,6 +89,8 @@ gosdk/
 │   ├── mapgen/
 │   └── scaffold/                   # not registered in go.work (WIP)
 ├── examples/                       # runnable example module
+├── release.sh                      # release tagging CLI & interactive tool
+├── RELEASE.md                      # monorepo release guide & SemVer standards
 ├── go.work
 └── Makefile
 ```
@@ -118,6 +120,9 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `storage/database/mysql`
 - `storage/database/oracle`
 - `storage/database/postgres`
+- `storage/objectstorage`
+- `storage/objectstorage/gcs`
+- `storage/objectstorage/s3`
 - `tools/dbmigration`
 - `tools/mapgen`
 - `transport/client/grpc`
@@ -126,6 +131,8 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `transport/server/grpc`
 - `transport/server/http`
 - `utils`
+
+For the complete guide on tagging and releasing these modules, see [RELEASE.md](RELEASE.md).
 
 A directory is not automatically a Go module. Use the checked-in `go.mod`/`go.work` files as the authority.
 

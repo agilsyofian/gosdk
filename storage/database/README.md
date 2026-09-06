@@ -133,7 +133,7 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/database"
-	"github.com/agilsyofian/gosdk/storage/postgres"
+	"github.com/agilsyofian/gosdk/storage/database/postgres"
 	"go.uber.org/fx"
 )
 

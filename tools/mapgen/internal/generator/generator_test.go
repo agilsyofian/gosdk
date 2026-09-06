@@ -17,7 +17,7 @@ import (
 // replace directive pointing at this repository.
 func e2eModule(t *testing.T) string {
 	t.Helper()
-	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,9 +31,9 @@ func e2eModule(t *testing.T) string {
 
 go 1.25
 
-require github.com/agilsyofian/gosdk/utils v0.0.0
+require github.com/agilsyofian/gosdk/utils/mapgen v0.0.0
 
-replace github.com/agilsyofian/gosdk/utils => `+root+`
+replace github.com/agilsyofian/gosdk/utils/mapgen => `+root+`
 `)
 	writeFile(t, filepath.Join(dir, "model"), "model.go", `package model
 
