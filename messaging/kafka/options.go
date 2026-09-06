@@ -2,10 +2,14 @@ package kafka
 
 import (
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"
+	"github.com/segmentio/kafka-go/sasl/plain"
+	"github.com/segmentio/kafka-go/sasl/scram"
 
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
@@ -24,6 +28,7 @@ type clientOptions struct {
 	tls            *tls.Config
 	sasl           sasl.Mechanism
 	healthRegistry health.Registry
+	err            error
 }
 
 func defaultClientOptions() clientOptions {
@@ -72,6 +77,79 @@ func WithTLS(cfg *tls.Config) Option {
 // implementations).
 func WithSASL(m sasl.Mechanism) Option {
 	return func(o *clientOptions) { o.sasl = m }
+}
+
+func validateSASLCredentials(username, password string) (bool, error) {
+	if username == "" && password == "" {
+		return false, nil
+	}
+	if username == "" || password == "" {
+		return false, errors.New("both username and password are required for SASL")
+	}
+	return true, nil
+}
+
+// WithSASLPlain enables SASL PLAIN authentication with the given credentials.
+// If both username and password are empty (""), this option is a no-op.
+// If only one is provided, Client construction will fail with ErrInvalidConfig.
+func WithSASLPlain(username, password string) Option {
+	return func(o *clientOptions) {
+		valid, err := validateSASLCredentials(username, password)
+		if err != nil {
+			o.err = err
+			return
+		}
+		if valid {
+			o.sasl = plain.Mechanism{
+				Username: username,
+				Password: password,
+			}
+		}
+	}
+}
+
+// WithSASLScramSHA256 enables SASL SCRAM-SHA-256 authentication with the given credentials.
+// If both username and password are empty (""), this option is a no-op.
+// If only one is provided or mechanism initialization fails, Client construction will fail with ErrInvalidConfig.
+func WithSASLScramSHA256(username, password string) Option {
+	return func(o *clientOptions) {
+		valid, err := validateSASLCredentials(username, password)
+		if err != nil {
+			o.err = err
+			return
+		}
+		if !valid {
+			return
+		}
+		m, err := scram.Mechanism(scram.SHA256, username, password)
+		if err != nil {
+			o.err = fmt.Errorf("init scram-sha-256: %w", err)
+			return
+		}
+		o.sasl = m
+	}
+}
+
+// WithSASLScramSHA512 enables SASL SCRAM-SHA-512 authentication with the given credentials.
+// If both username and password are empty (""), this option is a no-op.
+// If only one is provided or mechanism initialization fails, Client construction will fail with ErrInvalidConfig.
+func WithSASLScramSHA512(username, password string) Option {
+	return func(o *clientOptions) {
+		valid, err := validateSASLCredentials(username, password)
+		if err != nil {
+			o.err = err
+			return
+		}
+		if !valid {
+			return
+		}
+		m, err := scram.Mechanism(scram.SHA512, username, password)
+		if err != nil {
+			o.err = fmt.Errorf("init scram-sha-512: %w", err)
+			return
+		}
+		o.sasl = m
+	}
 }
 
 // --- Producer options ------------------------------------------------------

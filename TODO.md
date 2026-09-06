@@ -8,7 +8,7 @@ Dokumen ini merangkum rencana peningkatan (*enhancement*) pada modul `SDK/messag
 
 - [x] **Phase 1: Worker Resilience & Panic Safety** (Priority: **P0 - Critical**)
 - [ ] **Phase 2: Pegadaian Envelope Interoperability & Codec** (Priority: **P1 - High**)
-- [ ] **Phase 3: SASL Authentication & Config Ergonomics** (Priority: **P1 - High**)
+- [x] **Phase 3: SASL Authentication & Config Ergonomics** (Priority: **P1 - High**)
 - [ ] **Phase 4: Multi-Cluster Migration Support (Dual Consumer)** (Priority: **P2 - Medium**)
 - [ ] **Phase 5: OpenTelemetry Semantic Spans & Payload Masking** (Priority: **P2 - Medium**)
 
@@ -72,14 +72,14 @@ Dokumen ini merangkum rencana peningkatan (*enhancement*) pada modul `SDK/messag
 ### Phase 3: SASL Authentication & Config Ergonomics (Priority: P1)
 > **Tujuan**: Mempermudah konfigurasi otentikasi Kafka (SCRAM / PLAIN) dari file environment/YAML tanpa mengharuskan developer mengimpor package low-level `segmentio/kafka-go/sasl`.
 
-- [ ] **3.1. Shortcut Functional Options untuk SASL**
+- [x] **3.1. Shortcut Functional Options untuk SASL**
   - Tambahkan helper options di `options.go`:
     - `WithSASLPlain(username, password string) Option`
     - `WithSASLScramSHA256(username, password string) Option`
     - `WithSASLScramSHA512(username, password string) Option`
   - Validasi username dan password tidak boleh kosong jika opsi dipilih.
 
-- [ ] **3.2. Unit Test SASL Options**
+- [x] **3.2. Unit Test SASL Options**
   - Verifikasi bahwa options menghasilkan mekanisme SASL yang tepat pada client dialer & transport.
 
 ---

@@ -72,6 +72,9 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 	for _, opt := range opts {
 		opt(&o)
 	}
+	if o.err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, o.err)
+	}
 	client := &Client{cfg: cfg, opts: o}
 	if o.healthRegistry != nil {
 		o.healthRegistry.RegisterReadiness("kafka", client)
