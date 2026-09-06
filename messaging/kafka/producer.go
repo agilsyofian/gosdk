@@ -7,6 +7,10 @@ import (
 	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
@@ -27,10 +31,11 @@ type kafkaWriter interface {
 // Client.Producer and is safe for concurrent use by multiple goroutines
 // (messaging.md section 5, section 20).
 type Producer struct {
-	writer  kafkaWriter
-	topic   string
-	appName string
-	logger  logger.Logger
+	writer           kafkaWriter
+	topic            string
+	appName          string
+	logger           logger.Logger
+	enableLogPayload bool
 
 	closed atomic.Bool
 }
@@ -61,20 +66,31 @@ func (p *Producer) Publish(ctx context.Context, msg *Message) error {
 		msg.Headers = make(map[string]string)
 	}
 
-	traceID := msg.Headers["x-trace-id"]
-	if traceID == "" {
-		traceID = msg.Headers["traceparent"]
+	tracer := otel.Tracer("kafka-producer")
+	spanName := fmt.Sprintf("%s publish", topic)
+	spanAttrs := []attribute.KeyValue{
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination.name", topic),
+		attribute.String("messaging.operation", "publish"),
+		attribute.String("messaging.message.id", msg.ID),
 	}
-	if traceID == "" {
-		traceID = tracing.TraceID(ctx)
+	if len(msg.Key) > 0 {
+		spanAttrs = append(spanAttrs, attribute.String("messaging.kafka.message.key", string(msg.Key)))
 	}
-	if traceID == "" {
-		traceID = newMessageID()
-	}
+
+	publishCtx, span := tracer.Start(ctx, spanName,
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(spanAttrs...),
+	)
+	defer span.End()
+
+	otel.GetTextMapPropagator().Inject(publishCtx, propagation.MapCarrier(msg.Headers))
+
+	traceID := p.resolveTraceId(msg, publishCtx)
 	msg.Headers["x-trace-id"] = traceID
 
 	if msg.Headers["x-session-id"] == "" {
-		if sess := tracing.SessionID(ctx); sess != "" {
+		if sess := tracing.SessionID(publishCtx); sess != "" {
 			msg.Headers["x-session-id"] = sess
 		}
 	}
@@ -89,26 +105,44 @@ func (p *Producer) Publish(ctx context.Context, msg *Message) error {
 	}
 
 	start := time.Now()
-	err := p.writer.WriteMessages(ctx, kafkago.Message{
+	err := p.writer.WriteMessages(publishCtx, kafkago.Message{
 		Topic:   topic,
 		Key:     msg.Key,
 		Value:   msg.Payload,
 		Headers: headers,
 	})
 
-	payload := newLogPayload(ctx, p.appName, "PUBLISH", "/kafka/"+topic).
+	payload := newLogPayload(publishCtx, p.appName, "PUBLISH", "/kafka/"+topic).
 		WithMetadata("topic", topic).
 		WithMetadata("key", string(msg.Key)).
 		WithMetadata("message_id", msg.ID)
 	payload.Duration = time.Since(start).Milliseconds()
+	if p.enableLogPayload {
+		payload.Request = msg.Payload
+	}
 
 	if err != nil {
-		p.logger.Error(ctx, "kafka: publish failed", payload.WithError(err.Error()))
+		span.RecordError(err)
+		p.logger.Error(publishCtx, "kafka: publish failed", payload.WithError(err.Error()))
 		return fmt.Errorf("kafka: publish topic=%s: %w", topic, err)
 	}
 
-	p.logger.Info(ctx, "kafka: publish", payload)
+	p.logger.Info(publishCtx, "kafka: publish", payload)
 	return nil
+}
+
+func (p *Producer) resolveTraceId(msg *Message, publishCtx context.Context) string {
+	traceID := msg.Headers["x-trace-id"]
+	if traceID == "" {
+		traceID = msg.Headers["traceparent"]
+	}
+	if traceID == "" {
+		traceID = tracing.TraceID(publishCtx)
+	}
+	if traceID == "" {
+		traceID = newMessageID()
+	}
+	return traceID
 }
 
 // Close closes the underlying writer, flushing any buffered messages

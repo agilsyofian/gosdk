@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +14,10 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	kafkago "github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // kafkaReader is the subset of *kafkago.Reader this package depends on —
@@ -42,6 +47,7 @@ type Consumer struct {
 	maxConsecutiveErrors int
 	backoffInitialDelay  time.Duration
 	backoffMaxDelay      time.Duration
+	enableLogPayload     bool
 
 	closed atomic.Bool
 }
@@ -165,18 +171,39 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 }
 
 func (c *Consumer) buildMessageContext(ctx context.Context, msg *Message) context.Context {
+	msgCtx := ctx
+	if msg.Headers != nil {
+		msgCtx = otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier(msg.Headers))
+	}
+
 	traceID := ""
 	if msg.Headers != nil {
 		traceID = msg.Headers["x-trace-id"]
 		if traceID == "" {
-			traceID = msg.Headers["traceparent"]
+			if span := trace.SpanFromContext(msgCtx); span.SpanContext().IsValid() {
+				traceID = span.SpanContext().TraceID().String()
+			} else if tp := msg.Headers["traceparent"]; tp != "" {
+				parts := strings.Split(tp, "-")
+				if len(parts) >= 4 && len(parts[1]) == 32 {
+					traceID = parts[1]
+				} else {
+					traceID = tp
+				}
+			}
 		}
+	}
+	return c.buildTracerContext(traceID, msgCtx, msg)
+}
+
+func (c *Consumer) buildTracerContext(traceID string, msgCtx context.Context, msg *Message) context.Context {
+	if traceID == "" {
+		traceID = tracing.TraceID(msgCtx)
 	}
 	if traceID == "" {
 		traceID = newMessageID()
 	}
 
-	msgCtx := tracing.WithAppName(ctx, c.appName)
+	msgCtx = tracing.WithAppName(msgCtx, c.appName)
 	msgCtx = tracing.WithTraceID(msgCtx, traceID)
 	if msg.Headers != nil && msg.Headers["x-session-id"] != "" {
 		msgCtx = tracing.WithSessionID(msgCtx, msg.Headers["x-session-id"])
@@ -188,6 +215,26 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 	msgCtx := c.buildMessageContext(ctx, msg)
 	start := time.Now()
 
+	tracer := otel.Tracer("kafka-consumer")
+	spanName := fmt.Sprintf("%s process", msg.Topic)
+	spanAttrs := []attribute.KeyValue{
+		attribute.String("messaging.system", "kafka"),
+		attribute.String("messaging.destination.name", msg.Topic),
+		attribute.String("messaging.operation", "process"),
+		attribute.Int("messaging.kafka.destination.partition", msg.Partition),
+		attribute.Int64("messaging.kafka.message.offset", msg.Offset),
+		attribute.String("messaging.message.id", msg.ID),
+	}
+	if len(msg.Key) > 0 {
+		spanAttrs = append(spanAttrs, attribute.String("messaging.kafka.message.key", string(msg.Key)))
+	}
+
+	spanCtx, span := tracer.Start(msgCtx, spanName,
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(spanAttrs...),
+	)
+	defer span.End()
+
 	var err error
 
 	func() {
@@ -197,9 +244,10 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 				n := runtime.Stack(buf, false)
 				stackTrace := string(buf[:n])
 				err = fmt.Errorf("panic: %v", r)
+				span.RecordError(err)
 
-				c.logger.Error(msgCtx, "kafka: handler panicked",
-					c.logPayload(msgCtx, "PANIC").
+				c.logger.Error(spanCtx, "kafka: handler panicked",
+					c.logPayload(spanCtx, "PANIC").
 						WithMetadata("topic", msg.Topic).
 						WithMetadata("partition", strconv.Itoa(msg.Partition)).
 						WithMetadata("offset", strconv.FormatInt(msg.Offset, 10)).
@@ -208,11 +256,14 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 						WithError(err.Error()))
 			}
 		}()
-		err = handler(msgCtx, msg)
+		err = handler(spanCtx, msg)
+		if err != nil {
+			span.RecordError(err)
+		}
 	}()
 
 	dur := time.Since(start)
-	c.finalizeMessage(msgCtx, km, msg, err, dur)
+	c.finalizeMessage(spanCtx, km, msg, err, dur)
 }
 
 func (c *Consumer) finalizeMessage(msgCtx context.Context, km kafkago.Message, msg *Message, err error, dur time.Duration) {
@@ -235,6 +286,9 @@ func (c *Consumer) finalizeMessage(msgCtx context.Context, km kafkago.Message, m
 		WithMetadata("offset", strconv.FormatInt(msg.Offset, 10)).
 		WithMetadata("message_id", msg.ID)
 	base.Duration = dur.Milliseconds()
+	if c.enableLogPayload {
+		base.Request = msg.Payload
+	}
 
 	if err == nil {
 		if cerr := c.reader.CommitMessages(finalizeCtx, km); cerr != nil {

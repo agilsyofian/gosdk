@@ -11,6 +11,8 @@ import (
 	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
@@ -562,4 +564,131 @@ func TestConsumerOptions_Resilience(t *testing.T) {
 	if opts.backoffMaxDelay != 5*time.Second {
 		t.Errorf("backoffMaxDelay = %v, want 5s", opts.backoffMaxDelay)
 	}
+
+	if opts.enableLogPayload {
+		t.Error("expected enableLogPayload to be false by default")
+	}
+	WithConsumerLogPayload(true)(&opts)
+	if !opts.enableLogPayload {
+		t.Error("expected enableLogPayload to be true")
+	}
+}
+
+func TestConsumer_Consume_OpenTelemetryPropagation(t *testing.T) {
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	traceIDHex := "4bf92f3577b34da6a3ce929d0e0e4736"
+	spanIDHex := "00f067aa0ba902b7"
+	traceparent := fmt.Sprintf("00-%s-%s-01", traceIDHex, spanIDHex)
+
+	fr := &fakeReader{
+		messages: []kafkago.Message{
+			{
+				Topic:  "orders",
+				Offset: 1,
+				Value:  []byte("traced-payload"),
+				Headers: []kafkago.Header{
+					{Key: "traceparent", Value: []byte(traceparent)},
+				},
+			},
+		},
+	}
+	c := newTestConsumer(fr, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var extractedTraceID string
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Consume(ctx, func(hCtx context.Context, msg *Message) error {
+			extractedTraceID = tracing.TraceID(hCtx)
+			cancel()
+			return nil
+		})
+	}()
+
+	<-done
+
+	if extractedTraceID != traceIDHex {
+		t.Errorf("extracted trace ID = %q, want %q", extractedTraceID, traceIDHex)
+	}
+}
+
+func TestConsumer_Consume_LogPayloadOption(t *testing.T) {
+	t.Run("consumer log payload disabled by default", func(t *testing.T) {
+		spy := &spyLogger{}
+		fr := &fakeReader{messages: []kafkago.Message{{Topic: "orders", Offset: 1, Value: []byte("payload-1")}}}
+		c := newTestConsumer(fr, 1)
+		c.logger = spy
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		done := make(chan error, 1)
+		go func() {
+			done <- c.Consume(ctx, func(ctx context.Context, msg *Message) error {
+				cancel()
+				return nil
+			})
+		}()
+		<-done
+
+		spy.mu.Lock()
+		payloads := append([]logger.LogPayload{}, spy.payloads...)
+		spy.mu.Unlock()
+
+		var consumePayload *logger.LogPayload
+		for _, p := range payloads {
+			if p.Method == "CONSUME" {
+				cp := p
+				consumePayload = &cp
+				break
+			}
+		}
+		if consumePayload == nil {
+			t.Fatal("expected CONSUME log payload")
+		}
+		if consumePayload.Request != nil {
+			t.Errorf("expected Request to be nil when enableLogPayload is false, got %v", consumePayload.Request)
+		}
+	})
+
+	t.Run("consumer log payload enabled", func(t *testing.T) {
+		spy := &spyLogger{}
+		fr := &fakeReader{messages: []kafkago.Message{{Topic: "orders", Offset: 1, Value: []byte("payload-secret")}}}
+		c := newTestConsumer(fr, 1)
+		c.logger = spy
+		c.enableLogPayload = true
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		done := make(chan error, 1)
+		go func() {
+			done <- c.Consume(ctx, func(ctx context.Context, msg *Message) error {
+				cancel()
+				return nil
+			})
+		}()
+		<-done
+
+		spy.mu.Lock()
+		payloads := append([]logger.LogPayload{}, spy.payloads...)
+		spy.mu.Unlock()
+
+		var consumePayload *logger.LogPayload
+		for _, p := range payloads {
+			if p.Method == "CONSUME" {
+				cp := p
+				consumePayload = &cp
+				break
+			}
+		}
+		if consumePayload == nil {
+			t.Fatal("expected CONSUME log payload")
+		}
+		if string(consumePayload.Request.([]byte)) != "payload-secret" {
+			t.Errorf("expected Request = %q, got %v", "payload-secret", consumePayload.Request)
+		}
+	})
 }

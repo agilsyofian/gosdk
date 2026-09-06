@@ -9,6 +9,9 @@ import (
 	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
@@ -195,4 +198,91 @@ func TestProducer_Publish_Concurrent(t *testing.T) {
 	if len(fw.messages) != n {
 		t.Errorf("writer received %d messages, want %d", len(fw.messages), n)
 	}
+}
+
+type spyLogger struct {
+	mu       sync.Mutex
+	payloads []logger.LogPayload
+}
+
+func (s *spyLogger) Debug(ctx context.Context, msg string, payload logger.LogPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.payloads = append(s.payloads, payload)
+}
+func (s *spyLogger) Info(ctx context.Context, msg string, payload logger.LogPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.payloads = append(s.payloads, payload)
+}
+func (s *spyLogger) Warn(ctx context.Context, msg string, payload logger.LogPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.payloads = append(s.payloads, payload)
+}
+func (s *spyLogger) Error(ctx context.Context, msg string, payload logger.LogPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.payloads = append(s.payloads, payload)
+}
+
+func TestProducer_Publish_OpenTelemetryPropagation(t *testing.T) {
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	fw := &fakeWriter{}
+	p := newTestProducer(fw, "orders")
+
+	msg := &Message{Payload: []byte("trace-me")}
+	if err := p.Publish(context.Background(), msg); err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	if len(fw.messages) != 1 {
+		t.Fatalf("messages = %d, want 1", len(fw.messages))
+	}
+	headers := headerMap(fw.messages[0].Headers)
+	if headers["traceparent"] == "" {
+		t.Error("expected traceparent to be injected into Kafka headers by OpenTelemetry")
+	}
+	if headers["x-trace-id"] == "" {
+		t.Error("expected x-trace-id to be populated in Kafka headers")
+	}
+}
+
+func TestProducer_Publish_LogPayloadOption(t *testing.T) {
+	t.Run("log payload disabled by default", func(t *testing.T) {
+		fw := &fakeWriter{}
+		spy := &spyLogger{}
+		p := &Producer{writer: fw, topic: "orders", logger: spy}
+
+		if err := p.Publish(context.Background(), &Message{Payload: []byte("secret-data")}); err != nil {
+			t.Fatalf("Publish() error = %v", err)
+		}
+		if len(spy.payloads) != 1 {
+			t.Fatalf("payloads = %d, want 1", len(spy.payloads))
+		}
+		if spy.payloads[0].Request != nil {
+			t.Errorf("expected Request to be nil when enableLogPayload is false, got %v", spy.payloads[0].Request)
+		}
+	})
+
+	t.Run("log payload enabled", func(t *testing.T) {
+		fw := &fakeWriter{}
+		spy := &spyLogger{}
+		p := &Producer{writer: fw, topic: "orders", logger: spy, enableLogPayload: true}
+
+		if err := p.Publish(context.Background(), &Message{Payload: []byte("secret-data")}); err != nil {
+			t.Fatalf("Publish() error = %v", err)
+		}
+		if len(spy.payloads) != 1 {
+			t.Fatalf("payloads = %d, want 1", len(spy.payloads))
+		}
+		if string(spy.payloads[0].Request.([]byte)) != "secret-data" {
+			t.Errorf("expected Request = %q, got %v", "secret-data", spy.payloads[0].Request)
+		}
+	})
 }

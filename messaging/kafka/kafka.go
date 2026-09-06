@@ -132,7 +132,13 @@ func (c *Client) newProducerLocked(topic string, po producerOptions) *Producer {
 		Compression:  po.compression,
 		Transport:    c.transport(),
 	}
-	return &Producer{writer: w, topic: topic, appName: c.opts.appName, logger: c.opts.logger}
+	return &Producer{
+		writer:           w,
+		topic:            topic,
+		appName:          c.opts.appName,
+		logger:           c.opts.logger,
+		enableLogPayload: po.enableLogPayload,
+	}
 }
 
 // Consumer returns a Consumer that reads topic as part of groupID, using
@@ -180,6 +186,7 @@ func (c *Client) Consumer(topic, groupID string, opts ...ConsumerOption) (*Consu
 		maxConsecutiveErrors: co.maxConsecutiveErrors,
 		backoffInitialDelay:  co.backoffInitialDelay,
 		backoffMaxDelay:      co.backoffMaxDelay,
+		enableLogPayload:     co.enableLogPayload,
 	}
 
 	if co.deadLetterTopic != "" {

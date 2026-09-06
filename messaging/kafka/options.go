@@ -158,11 +158,12 @@ func WithSASLScramSHA512(username, password string) Option {
 type ProducerOption func(*producerOptions)
 
 type producerOptions struct {
-	balancer     kafkago.Balancer
-	requiredAcks kafkago.RequiredAcks
-	batchTimeout time.Duration
-	writeTimeout time.Duration
-	compression  kafkago.Compression
+	balancer         kafkago.Balancer
+	requiredAcks     kafkago.RequiredAcks
+	batchTimeout     time.Duration
+	writeTimeout     time.Duration
+	compression      kafkago.Compression
+	enableLogPayload bool
 }
 
 func defaultProducerOptions() producerOptions {
@@ -207,6 +208,14 @@ func WithCompression(c kafkago.Compression) ProducerOption {
 	return func(o *producerOptions) { o.compression = c }
 }
 
+// WithProducerLogPayload controls whether the message payload body is
+// attached to structured log entries. When enabled, sensitive fields (passwords,
+// tokens, PINs) are automatically masked by logger.FilterSensitiveData.
+// Defaults to false.
+func WithProducerLogPayload(enabled bool) ProducerOption {
+	return func(o *producerOptions) { o.enableLogPayload = enabled }
+}
+
 // --- Consumer options -------------------------------------------------------
 
 // ConsumerOption configures a Consumer.
@@ -221,6 +230,7 @@ type consumerOptions struct {
 	maxConsecutiveErrors int
 	backoffInitialDelay  time.Duration
 	backoffMaxDelay      time.Duration
+	enableLogPayload     bool
 }
 
 func defaultConsumerOptions() consumerOptions {
@@ -233,6 +243,13 @@ func defaultConsumerOptions() consumerOptions {
 		backoffInitialDelay:  200 * time.Millisecond,
 		backoffMaxDelay:      2 * time.Second,
 	}
+}
+
+// WithConsumerLogPayload controls whether the consumed message payload body is
+// attached to structured log entries. When enabled, sensitive fields are
+// automatically masked by logger.FilterSensitiveData. Defaults to false.
+func WithConsumerLogPayload(enabled bool) ConsumerOption {
+	return func(o *consumerOptions) { o.enableLogPayload = enabled }
 }
 
 // WithConcurrency bounds how many messages are handled at once by a
