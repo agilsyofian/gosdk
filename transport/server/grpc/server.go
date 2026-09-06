@@ -21,17 +21,18 @@ type serviceRegistration struct {
 }
 
 type Server struct {
-	mu           sync.RWMutex
-	grpcServer   *grpc.Server
-	logger       logger.Logger
-	addr         string
-	appName      string
-	cfg          Config
-	tracing      *tracing.Tracing
-	interceptors []grpc.UnaryServerInterceptor
-	opts         []grpc.ServerOption
-	services     []serviceRegistration
-	started      bool
+	mu                 sync.RWMutex
+	grpcServer         *grpc.Server
+	logger             logger.Logger
+	addr               string
+	appName            string
+	cfg                Config
+	tracing            *tracing.Tracing
+	interceptors       []grpc.UnaryServerInterceptor
+	streamInterceptors []grpc.StreamServerInterceptor
+	opts               []grpc.ServerOption
+	services           []serviceRegistration
+	started            bool
 }
 
 func NewServer(
@@ -93,6 +94,23 @@ func (s *Server) Use(interceptors ...grpc.UnaryServerInterceptor) {
 	s.rebuildServer()
 }
 
+// UseStream appends stream interceptors to the gRPC server pipeline.
+func (s *Server) UseStream(interceptors ...grpc.StreamServerInterceptor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.started {
+		s.logger.Warn(context.Background(), "cannot modify gRPC stream interceptors after server has started", logger.LogPayload{
+			Type:   "GRPC_SERVER",
+			Method: "CONFIG",
+		})
+		return
+	}
+
+	s.streamInterceptors = append(s.streamInterceptors, interceptors...)
+	s.rebuildServer()
+}
+
 func (s *Server) SetServerOptions(opts ...grpc.ServerOption) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -118,11 +136,22 @@ func (s *Server) rebuildServer() {
 		interceptor.Logger(s.logger, s.appName),
 		interceptor.Error(s.logger, s.appName, s.cfg.ShowErrorDetail),
 	}
-
 	allInterceptors = append(allInterceptors, s.interceptors...)
 
+	allStreamInterceptors := []grpc.StreamServerInterceptor{
+		interceptor.RecoveryStream(s.logger, s.appName),
+		interceptor.MetadataStream(s.cfg.Metadata),
+		interceptor.TracerStream(s.appName),
+		interceptor.LoggerStream(s.logger, s.appName),
+		interceptor.ErrorStream(s.logger, s.appName, s.cfg.ShowErrorDetail),
+	}
+	allStreamInterceptors = append(allStreamInterceptors, s.streamInterceptors...)
+
 	opts := append([]grpc.ServerOption{}, s.opts...)
-	opts = append(opts, grpc.ChainUnaryInterceptor(allInterceptors...))
+	opts = append(opts,
+		grpc.ChainUnaryInterceptor(allInterceptors...),
+		grpc.ChainStreamInterceptor(allStreamInterceptors...),
+	)
 
 	s.grpcServer = grpc.NewServer(opts...)
 

@@ -109,3 +109,46 @@ func TestLoggerInterceptor_ServerError_ErrorLevel(t *testing.T) {
 	assert.Equal(t, int(codes.Unknown), mockLog.lastPayload.Status)
 	assert.Equal(t, "database connection failure", mockLog.lastPayload.Error)
 }
+
+func TestLoggerStream_Success(t *testing.T) {
+	mockLog := &interceptorTestLogger{}
+	interceptor := LoggerStream(mockLog, "test-app")
+
+	ctx := context.Background()
+	meta := &coremetadata.Metadata{ClientIP: "192.168.10.20"}
+	ctx = coremetadata.WithContext(ctx, meta)
+
+	ss := &mockServerStream{ctx: ctx}
+	info := &grpc.StreamServerInfo{FullMethod: "/test.StreamService/Chat"}
+	handler := func(srv any, stream grpc.ServerStream) error {
+		return nil
+	}
+
+	err := interceptor(nil, ss, info, handler)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "info", mockLog.lastLevel)
+	assert.Equal(t, "GRPC /test.StreamService/Chat", mockLog.lastMsg)
+	assert.Equal(t, "192.168.10.20", mockLog.lastPayload.IpAddress)
+	assert.Equal(t, 0, mockLog.lastPayload.Status)
+	assert.Equal(t, "/test.StreamService/Chat", mockLog.lastPayload.Path)
+}
+
+func TestLoggerStream_Error(t *testing.T) {
+	mockLog := &interceptorTestLogger{}
+	interceptor := LoggerStream(mockLog, "test-app")
+
+	ctx := context.Background()
+	ss := &mockServerStream{ctx: ctx}
+	info := &grpc.StreamServerInfo{FullMethod: "/test.StreamService/Download"}
+	handler := func(srv any, stream grpc.ServerStream) error {
+		return status.Error(codes.ResourceExhausted, "quota exceeded")
+	}
+
+	err := interceptor(nil, ss, info, handler)
+	assert.Error(t, err)
+
+	assert.Equal(t, "warn", mockLog.lastLevel)
+	assert.Equal(t, int(codes.ResourceExhausted), mockLog.lastPayload.Status)
+	assert.Equal(t, "rpc error: code = ResourceExhausted desc = quota exceeded", mockLog.lastPayload.Error)
+}

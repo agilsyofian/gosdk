@@ -71,3 +71,32 @@ func TestTracerInterceptor_FallbackUUIDGeneration(t *testing.T) {
 	assert.Equal(t, meta.TraceID, recordedTraceID)
 	assert.Equal(t, meta.SessionID, recordedSessionID)
 }
+
+func TestTracerStream_Parity(t *testing.T) {
+	interceptor := TracerStream("test-app")
+
+	md := metadata.Pairs(
+		MetadataTraceID, "stream-trace-999",
+		MetadataSessionID, "stream-session-888",
+	)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	meta := &coremetadata.Metadata{}
+	ctx = coremetadata.WithContext(ctx, meta)
+
+	var recordedTraceID, recordedSessionID string
+	handler := func(srv any, ss grpc.ServerStream) error {
+		recordedTraceID = coreContext.TraceID(ss.Context())
+		recordedSessionID = coreContext.SessionID(ss.Context())
+		return nil
+	}
+
+	ss := &mockServerStream{ctx: ctx}
+	info := &grpc.StreamServerInfo{FullMethod: "/test.StreamService/Stream"}
+	err := interceptor(nil, ss, info, handler)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "stream-trace-999", recordedTraceID)
+	assert.Equal(t, "stream-session-888", recordedSessionID)
+	assert.Equal(t, "stream-trace-999", meta.TraceID)
+	assert.Equal(t, "stream-session-888", meta.SessionID)
+}

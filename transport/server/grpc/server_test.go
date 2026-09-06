@@ -38,6 +38,19 @@ func TestServer_Use_Interceptor(t *testing.T) {
 	})
 }
 
+func TestServer_UseStream_Interceptor(t *testing.T) {
+	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
+	cfg := Config{
+		Addr: ":0",
+	}
+
+	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+
+	s.UseStream(func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return handler(srv, ss)
+	})
+}
+
 func TestServer_Shutdown_Graceful(t *testing.T) {
 	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
 	cfg := Config{

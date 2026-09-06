@@ -139,3 +139,34 @@ func TestErrorInterceptor_GenericError_WithDetail(t *testing.T) {
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Contains(t, st.Message(), "raw unhandled error")
 }
+
+func TestErrorStream_Parity(t *testing.T) {
+	mockLog := &interceptorTestLogger{}
+	interceptor := ErrorStream(mockLog, "test-app", false)
+
+	ctx := context.Background()
+	meta := &coremetadata.Metadata{ClientIP: "10.10.10.10"}
+	ctx = coremetadata.WithContext(ctx, meta)
+
+	ss := &mockServerStream{ctx: ctx}
+	info := &grpc.StreamServerInfo{FullMethod: "/test.StreamService/FailingStream"}
+	appErr := &coreErrors.AppError{
+		Status:  coreErrors.StatusNotFound,
+		Message: "stream resource not found",
+	}
+	handler := func(srv any, stream grpc.ServerStream) error {
+		return appErr
+	}
+
+	err := interceptor(nil, ss, info, handler)
+	assert.Error(t, err)
+
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
+	assert.Equal(t, "stream resource not found", st.Message())
+
+	assert.Equal(t, "error", mockLog.lastLevel)
+	assert.Equal(t, "10.10.10.10", mockLog.lastPayload.IpAddress)
+	assert.Equal(t, int(codes.NotFound), mockLog.lastPayload.Status)
+}

@@ -38,6 +38,28 @@ func Logger(l logger.Logger, appName string) grpc.UnaryServerInterceptor {
 	}
 }
 
+// LoggerStream returns a stream server interceptor that logs the lifecycle, status, and duration of streaming RPCs.
+func LoggerStream(l logger.Logger, appName string) grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		start := time.Now()
+		ctx := ss.Context()
+		md, _ := metadata.FromIncomingContext(ctx)
+
+		err := handler(srv, ss)
+
+		logRPC(ctx, l, appName, rpcEvent{
+			fullMethod: info.FullMethod,
+			md:         md,
+			req:        nil,
+			resp:       nil,
+			err:        err,
+			start:      start,
+		})
+
+		return err
+	}
+}
+
 type rpcEvent struct {
 	fullMethod string
 	md         metadata.MD
