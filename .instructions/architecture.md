@@ -19,6 +19,7 @@ security/
 ├── session/
     ├──redis ──────────────────────────────── security + storage/cache
 ├── authenticator/* ───────────────────────── security
+├── signature ─────────────────────────────── (zero external deps)
 ├── * ─────────────────────────────────────── core/observability/*
 
 storage/
@@ -113,6 +114,10 @@ Concrete session managers: in-memory and Redis-backed.
 ### `security/authorization`
 
 Role/permission authorization implementation.
+
+### `security/signature`
+
+Cryptographic request signing and verification engine (HMAC-SHA256, HMAC-SHA512, RSA-SHA256, Hex/Base64). Provides pluggable `Canonicalizer`, `ResponseCanonicalizer`, and `SecretProvider` interfaces with zero external dependencies. Used by transport middleware for Secure Transport and response signing.
 
 ### `storage/cache`
 

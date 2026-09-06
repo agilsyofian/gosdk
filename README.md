@@ -55,6 +55,7 @@ gosdk/
 │   ├── session/
 │   │   ├── memory/
 │   │   └── redis/
+│   ├── signature/                  # HMAC/digital signature & response signing
 │   ├── jwks/
 │   └── (core security types, manager, registry, context, errors)
 ├── storage/
@@ -112,6 +113,7 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `security/authenticator/jwt`
 - `security/session/memory`
 - `security/session/redis`
+- `security/signature`
 - `storage/cache`
 - `storage/cache/local`
 - `storage/cache/redis`
