@@ -100,9 +100,8 @@ There is **no current `app/`, `config/`, `foundation/`, or top-level `internal/`
 The workspace is defined by `go.work`. Current workspace modules include:
 
 - `core/errors`
-- `core/observability/health`
-- `core/core/observability/logger`
-- `core/observability/tracing`
+- `core/metadata`
+- `core/observability`
 - `core/resilience`
 - `examples`
 - `messaging/kafka`

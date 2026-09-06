@@ -4,7 +4,7 @@ go 1.26.8
 
 require (
 	github.com/agilsyofian/gosdk/core/metadata v0.0.1
-	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0
+	github.com/agilsyofian/gosdk/core/observability v0.0.1
 	github.com/agilsyofian/gosdk/transport/idempotency v0.0.1
 	github.com/google/uuid v1.6.0
 	go.opentelemetry.io/otel v1.46.0
@@ -16,7 +16,7 @@ require (
 
 replace (
 	github.com/agilsyofian/gosdk/core/metadata => ./../../../core/metadata
-	github.com/agilsyofian/gosdk/core/observability/tracing => ./../../../core/observability/tracing
+	github.com/agilsyofian/gosdk/core/observability => ./../../../core/observability
 	github.com/agilsyofian/gosdk/transport/idempotency => ./../../idempotency
 )
 

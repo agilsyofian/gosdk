@@ -1,5 +1,12 @@
 # Observability
 
+All observability primitives are housed within the single unified module `github.com/agilsyofian/gosdk/core/observability` and exposed through clean subpackages:
+- `core/observability/logger`
+- `core/observability/tracing`
+- `core/observability/health`
+- `core/observability/metrics`
+- `core/observability/audit`
+
 ## 1. Logging
 
 The implemented logging abstraction is `core/observability/logger.Logger`, with a zerolog-backed implementation.

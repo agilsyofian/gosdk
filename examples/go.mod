@@ -7,9 +7,7 @@ tool github.com/agilsyofian/utils/mapgen
 replace (
 	github.com/agilsyofian/gosdk/core/errors => ./../core/errors
 	github.com/agilsyofian/gosdk/core/metadata => ./../core/metadata
-	github.com/agilsyofian/gosdk/core/observability/health => ./../core/observability/health
-	github.com/agilsyofian/gosdk/core/observability/tracing => ./../core/observability/tracing
-	github.com/agilsyofian/gosdk/core/observability/logger => ./../core/observability/logger
+	github.com/agilsyofian/gosdk/core/observability => ./../core/observability
 	github.com/agilsyofian/gosdk/resilience => ./../core/resilience
 	github.com/agilsyofian/gosdk/security => ./../security
 	github.com/agilsyofian/gosdk/security/authenticator/jwt => ./../security/authenticator/jwt
@@ -29,9 +27,7 @@ replace (
 require (
 	github.com/agilsyofian/gosdk/core/errors v0.0.1
 	github.com/agilsyofian/gosdk/core/metadata v0.0.1
-	github.com/agilsyofian/gosdk/core/observability/health v0.0.1
-	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.1
-	github.com/agilsyofian/gosdk/core/observability/logger v0.0.1
+	github.com/agilsyofian/gosdk/core/observability v0.0.1
 	github.com/agilsyofian/gosdk/resilience v0.0.1 // indirect
 	github.com/agilsyofian/gosdk/security v0.0.1
 	github.com/agilsyofian/gosdk/security/authenticator/jwt v0.0.1

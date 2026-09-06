@@ -2,16 +2,10 @@ module github.com/agilsyofian/gosdk/messaging/kafka
 
 go 1.26.8
 
-replace github.com/agilsyofian/gosdk/core/observability/logger => ./../../core/observability/logger
-
-replace github.com/agilsyofian/gosdk/core/observability/tracing => ./../../core/observability/tracing
-
-replace github.com/agilsyofian/gosdk/core/observability/health => ./../../core/observability/health
+replace github.com/agilsyofian/gosdk/core/observability => ./../../core/observability
 
 require (
-	github.com/agilsyofian/gosdk/core/observability/health v0.0.0-00010101000000-000000000000
-	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0-00010101000000-000000000000
-	github.com/agilsyofian/gosdk/core/observability/logger v0.0.0-00010101000000-000000000000
+	github.com/agilsyofian/gosdk/core/observability v0.0.1
 )
 
 require github.com/xdg-go/scram v1.2.0 // indirect

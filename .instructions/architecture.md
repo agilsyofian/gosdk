@@ -49,11 +49,9 @@ tools/          (dev-time only, not imported by runtime packages)
 
 core/
   ├── errors                (zero external deps)
+  ├── metadata              (zero external deps)
   ├── resilience/*          (zero external deps)
-  └── observability/
-        ├── health          (zero external deps)
-        ├── tracing         (zero external deps)
-        └── logger          (zerolog only)
+  └── observability         (unified module: logger, tracing, health, metrics, audit)
 ```
 
 The `core/` layer is the foundation: packages here have zero or near-zero external dependencies and must never import from `transport`, `security`, `storage`, `messaging`, or `tools`.
@@ -67,13 +65,12 @@ This is a practical dependency graph, not a requirement that every package impor
 - `security/authenticator/apikey` and `security/authenticator/basicauth` depend on `security`.
 - `security/authenticator/jwt` depends on `security`, `core/resilience`, `core/observability/logger`, and HTTP client functionality for JWKS-related work.
 - `security/session/memory` depends on `security`; `security/session/redis` depends on `security`, `core/errors`, and `storage/cache`.
-- `storage/cache/redis` implements `storage/cache` and uses `core/observability/logger` and `core/observability/tracing`.
-- database drivers implement `storage/database` and use `core/observability/logger` and `core/observability/tracing`.
-- HTTP/gRPC clients use `core/resilience` and `core/observability/*`; the gRPC client also provides JWT bearer authorization.
-- HTTP/gRPC servers use `core/errors`, `core/observability/*`, and security-related middleware/interceptors.
+- `storage/cache/redis` implements `storage/cache` and uses `core/observability`.
+- database drivers implement `storage/database` and use `core/observability`.
+- HTTP/gRPC clients use `core/resilience` and `core/observability`; the gRPC client also provides JWT bearer authorization.
+- HTTP/gRPC servers use `core/errors`, `core/metadata`, `core/observability`, and security-related middleware/interceptors.
 - HTTP and gRPC servers both use `transport/idempotency` for standardized, transport-agnostic idempotency storage, concurrency singleflight locking, and response caching.
 - `transport/idempotency` has zero external dependencies and defines the standard `Storage` interface (which matches `storage/cache.Cache`).
-- **`core/observability/logger` does not depend on `core/observability/tracing`**. Callers are responsible for populating `LogPayload.TraceId`, `SessionId`, and `SpanId` before logging.
 
 Do not create reverse dependencies that make lower-level abstractions depend on transport or application code.
 
@@ -83,21 +80,21 @@ Do not create reverse dependencies that make lower-level abstractions depend on 
 
 Centralized application error representation (`AppError`) and HTTP status classification. Zero external dependencies.
 
+### `core/metadata`
+
+Universal request context metadata engine (`Metadata`, `Extractor`, `Carrier`). Supports declarative company-specific header mappings and dynamic baggage. Zero external dependencies.
+
 ### `core/resilience/*`
 
 Small policies exposing `Execute(ctx, fn)` for timeout, retry, rate limiting, and circuit breaking. Zero external dependencies.
 
-### `core/observability/logger`
+### `core/observability`
 
-Logger interface (`Logger`), `LogPayload` struct, zerolog implementation, and sensitive-data filtering. Depends only on `zerolog`. Does **not** read trace/session data from context — callers must populate `LogPayload` fields before calling the logger.
-
-### `core/observability/tracing`
-
-OpenTelemetry tracing setup plus context helpers for `app_name`, `trace_id`, and `session_id`. Zero external dependencies beyond the OTel SDK.
-
-### `core/observability/health`
-
-Named health checks and registry aggregation. Zero external dependencies.
+Unified observability module bundling:
+- **`logger`**: High-performance zerolog-based logging, sensitive-data sanitization, and trace context integration.
+- **`tracing`**: OpenTelemetry tracing initialization, OTLP export, and context propagation helpers.
+- **`health`**: Liveness, readiness, and startup health check registry.
+- **`metrics`** & **`audit`**: Metrics and audit trail sink abstractions.
 
 ### `security`
 
