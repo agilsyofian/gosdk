@@ -72,6 +72,7 @@ gosdk/
 │   ├── client/
 │   │   ├── grpc/
 │   │   └── http/
+│   ├── idempotency/                # shared standard engine & storage for HTTP/gRPC
 │   └── server/
 │       ├── grpc/                   # interceptors + security extraction
 │       ├── http/                   # Gin server, middleware, DTO/security
@@ -122,6 +123,7 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `tools/mapgen`
 - `transport/client/grpc`
 - `transport/client/http`
+- `transport/idempotency`
 - `transport/server/grpc`
 - `transport/server/http`
 - `utils`

@@ -6,7 +6,8 @@
 
 ```text
 transport/
-├── server/*  ────────────────────────────┐
+├── idempotency (standard engine) ────────┐
+├── server/*  ────────────────────────────┤
 ├── client/*  ────────────────────────────┤
                                           ├── security
                                           ├── storage/*
@@ -69,6 +70,8 @@ This is a practical dependency graph, not a requirement that every package impor
 - database drivers implement `storage/database` and use `core/observability/logger` and `core/observability/tracing`.
 - HTTP/gRPC clients use `core/resilience` and `core/observability/*`; the gRPC client also provides JWT bearer authorization.
 - HTTP/gRPC servers use `core/errors`, `core/observability/*`, and security-related middleware/interceptors.
+- HTTP and gRPC servers both use `transport/idempotency` for standardized, transport-agnostic idempotency storage, concurrency singleflight locking, and response caching.
+- `transport/idempotency` has zero external dependencies and defines the standard `Storage` interface (which matches `storage/cache.Cache`).
 - **`core/observability/logger` does not depend on `core/observability/tracing`**. Callers are responsible for populating `LogPayload.TraceId`, `SessionId`, and `SpanId` before logging.
 
 Do not create reverse dependencies that make lower-level abstractions depend on transport or application code.
@@ -134,6 +137,10 @@ Gin-based HTTP server with middleware, DTO helpers, health/actuator support, and
 ### `transport/server/grpc`
 
 gRPC server with interceptors, security extraction, registration, start/shutdown, and server options.
+
+### `transport/idempotency`
+
+Standard, transport-agnostic idempotency engine. Provides the `Storage` interface, in-memory storage fallback, agnostic `Record` caching model, in-flight concurrency singleflight locking, and canonical key utilities. Has zero external dependencies and serves as the common standard for both HTTP middleware and gRPC interceptors.
 
 ### `messaging/kafka`
 

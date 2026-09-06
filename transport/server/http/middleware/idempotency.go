@@ -4,15 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	appError "github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/transport/idempotency"
 	"github.com/agilsyofian/gosdk/transport/server/http/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -22,24 +21,22 @@ var (
 	ErrInflightConflict      = errors.New("concurrent request in progress, please retry")
 )
 
-// IdempotencyStorage defines the storage interface for caching idempotent responses.
-// Note that SDK's storage/cache.Cache automatically satisfies this interface.
-type IdempotencyStorage interface {
-	Get(ctx context.Context, key string) ([]byte, error)
-	Set(ctx context.Context, key string, value []byte, expiration time.Duration) error
-	Delete(ctx context.Context, key string) error
+// IdempotencyStorage is an alias to standard transport/idempotency.Storage for backward compatibility.
+type IdempotencyStorage = idempotency.Storage
+
+// MemoryStorage is an alias to transport/idempotency.MemoryStorage for backward compatibility.
+type MemoryStorage = idempotency.MemoryStorage
+
+// NewMemoryStorage creates an in-memory IdempotencyStorage.
+func NewMemoryStorage() *MemoryStorage {
+	return idempotency.NewMemoryStorage()
 }
 
 // CanonicalKeyFunc defines the signature for extracting or generating a canonical idempotency key.
 type CanonicalKeyFunc func(c *gin.Context, reqBody []byte) (string, error)
 
 // CachedResponse stores HTTP response attributes for idempotent replay.
-type CachedResponse struct {
-	StatusCode  int               `json:"status_code"`
-	ContentType string            `json:"content_type"`
-	Body        []byte            `json:"body"`
-	Headers     map[string]string `json:"headers,omitempty"`
-}
+type CachedResponse = idempotency.Record
 
 // IdempotencyConfig configures the idempotency middleware.
 type IdempotencyConfig struct {
@@ -159,11 +156,20 @@ func extractClientIdentifier(c *gin.Context) string {
 	return c.ClientIP()
 }
 
-// In-flight concurrency tracker
-var inflightMap = sync.Map{}
-
-// Idempotency returns a Gin middleware ensuring idempotent request execution.
+// Idempotency returns a Gin middleware ensuring idempotent request execution backed by transport/idempotency.Engine.
 func Idempotency(storage IdempotencyStorage, opts ...IdempotencyOption) gin.HandlerFunc {
+	cfg := resolveConfig(storage, opts...)
+	engine := idempotency.NewEngine(cfg.Storage,
+		idempotency.WithDefaultTTL(cfg.TTL),
+		idempotency.WithLockTimeout(cfg.LockTimeout),
+	)
+
+	return func(c *gin.Context) {
+		handleIdempotentRequest(c, engine, cfg)
+	}
+}
+
+func resolveConfig(storage IdempotencyStorage, opts ...IdempotencyOption) IdempotencyConfig {
 	cfg := IdempotencyConfig{
 		Storage:       storage,
 		KeyFunc:       DefaultCanonicalKey,
@@ -178,51 +184,71 @@ func Idempotency(storage IdempotencyStorage, opts ...IdempotencyOption) gin.Hand
 	}
 
 	if cfg.Storage == nil {
-		cfg.Storage = NewMemoryStorage()
+		cfg.Storage = idempotency.NewMemoryStorage()
 	}
 
-	return func(c *gin.Context) {
-		if shouldIgnoreMethod(c.Request.Method, cfg.IgnoreMethods) {
-			c.Next()
-			return
-		}
+	return cfg
+}
 
-		reqBody := captureRequestBody(c)
-		idemKey, err := cfg.KeyFunc(c, reqBody)
-		if err != nil {
-			abortIdemError(c, cfg.AppName, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		storageKey := "IDEM:" + idemKey
-
-		// 1. Check existing cached response
-		if cachedData, err := cfg.Storage.Get(c.Request.Context(), storageKey); err == nil && len(cachedData) > 0 {
-			if replayCachedResponse(c, cachedData) {
-				return
-			}
-		}
-
-		// 2. Concurrency lock for in-flight requests
-		ch := make(chan struct{})
-		actual, loaded := inflightMap.LoadOrStore(storageKey, ch)
-		if loaded {
-			handleInflightConflict(c, cfg, storageKey, actual.(chan struct{}))
-			return
-		}
-
-		defer func() {
-			close(ch)
-			inflightMap.Delete(storageKey)
-		}()
-
-		// 3. Capture response and execute downstream handlers
-		recorder := captureResponseBody(c)
+func handleIdempotentRequest(c *gin.Context, engine *idempotency.Engine, cfg IdempotencyConfig) {
+	if shouldIgnoreMethod(c.Request.Method, cfg.IgnoreMethods) {
 		c.Next()
-
-		// 4. Cache response if eligible
-		saveIdempotentResponse(c, cfg.Storage, storageKey, recorder, cfg.TTL)
+		return
 	}
+
+	reqBody := captureRequestBody(c)
+	idemKey, err := cfg.KeyFunc(c, reqBody)
+	if err != nil {
+		abortIdemError(c, cfg.AppName, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	storageKey := "IDEM:" + idemKey
+	rec, isReplay, execErr := engine.Execute(c.Request.Context(), storageKey, cfg.TTL, func(_ context.Context) (*idempotency.Record, error) {
+		return executeAndRecord(c)
+	})
+
+	if execErr != nil {
+		handleExecutionError(c, cfg.AppName, execErr)
+		return
+	}
+
+	if isReplay && rec != nil {
+		replayCachedResponse(c, rec)
+	}
+}
+
+func executeAndRecord(c *gin.Context) (*idempotency.Record, error) {
+	recorder := captureResponseBody(c)
+	c.Next()
+
+	status := c.Writer.Status()
+	if status >= 500 {
+		return nil, nil // Do not cache 5xx server panics/errors
+	}
+
+	headers := make(map[string]string)
+	if ct := c.Writer.Header().Get("Content-Type"); ct != "" {
+		headers["Content-Type"] = ct
+	}
+
+	return &idempotency.Record{
+		StatusCode: status,
+		Headers:    headers,
+		Body:       recorder.body.Bytes(),
+	}, nil
+}
+
+func handleExecutionError(c *gin.Context, appName string, err error) {
+	if errors.Is(err, idempotency.ErrTimeoutWaitingInflight) {
+		abortIdemError(c, appName, http.StatusConflict, "idempotency lock timeout exceeded")
+		return
+	}
+	if errors.Is(err, idempotency.ErrInflightFailed) {
+		abortIdemError(c, appName, http.StatusConflict, ErrInflightConflict.Error())
+		return
+	}
+	abortIdemError(c, appName, http.StatusConflict, err.Error())
 }
 
 func shouldIgnoreMethod(method string, ignored []string) bool {
@@ -234,60 +260,16 @@ func shouldIgnoreMethod(method string, ignored []string) bool {
 	return false
 }
 
-func replayCachedResponse(c *gin.Context, data []byte) bool {
-	var cached CachedResponse
-	if err := json.Unmarshal(data, &cached); err != nil {
-		return false
-	}
-
+func replayCachedResponse(c *gin.Context, rec *idempotency.Record) {
 	c.Header("X-Cache-Lookup", "HIT")
 	c.Header("X-Idempotent-Replayed", "true")
-	if cached.ContentType != "" {
-		c.Header("Content-Type", cached.ContentType)
-	}
-	for k, v := range cached.Headers {
+	for k, v := range rec.Headers {
 		c.Header(k, v)
 	}
 
-	c.Status(cached.StatusCode)
-	_, _ = c.Writer.Write(cached.Body)
+	c.Status(rec.StatusCode)
+	_, _ = c.Writer.Write(rec.Body)
 	c.Abort()
-	return true
-}
-
-func handleInflightConflict(c *gin.Context, cfg IdempotencyConfig, storageKey string, waitCh chan struct{}) {
-	select {
-	case <-waitCh:
-		// Request 1 finished, check storage
-		if cachedData, err := cfg.Storage.Get(c.Request.Context(), storageKey); err == nil && len(cachedData) > 0 {
-			if replayCachedResponse(c, cachedData) {
-				return
-			}
-		}
-		abortIdemError(c, cfg.AppName, http.StatusConflict, ErrInflightConflict.Error())
-	case <-c.Request.Context().Done():
-		c.AbortWithStatus(http.StatusRequestTimeout)
-	case <-time.After(cfg.LockTimeout):
-		abortIdemError(c, cfg.AppName, http.StatusConflict, "idempotency lock timeout exceeded")
-	}
-}
-
-func saveIdempotentResponse(c *gin.Context, storage IdempotencyStorage, storageKey string, recorder *bodyLogWriter, ttl time.Duration) {
-	status := c.Writer.Status()
-	// Only cache successful or client validation responses (not 5xx server panics/errors)
-	if status >= 500 {
-		return
-	}
-
-	resp := CachedResponse{
-		StatusCode:  status,
-		ContentType: c.Writer.Header().Get("Content-Type"),
-		Body:        recorder.body.Bytes(),
-	}
-
-	if data, err := json.Marshal(resp); err == nil {
-		_ = storage.Set(c.Request.Context(), storageKey, data, ttl)
-	}
 }
 
 func abortIdemError(c *gin.Context, appName string, status int, message string) {
@@ -317,45 +299,4 @@ func mapHTTPStatus(status int) appError.HTTPStatus {
 	default:
 		return appError.StatusInternalServerError
 	}
-}
-
-// MemoryStorage implements in-memory IdempotencyStorage with TTL.
-type MemoryStorage struct {
-	items sync.Map
-}
-
-type memoryStorageItem struct {
-	data      []byte
-	expiresAt time.Time
-}
-
-// NewMemoryStorage creates an in-memory IdempotencyStorage.
-func NewMemoryStorage() *MemoryStorage {
-	return &MemoryStorage{}
-}
-
-func (m *MemoryStorage) Get(_ context.Context, key string) ([]byte, error) {
-	val, ok := m.items.Load(key)
-	if !ok {
-		return nil, errors.New("key not found")
-	}
-	item := val.(memoryStorageItem)
-	if time.Now().After(item.expiresAt) {
-		m.items.Delete(key)
-		return nil, errors.New("key expired")
-	}
-	return item.data, nil
-}
-
-func (m *MemoryStorage) Set(_ context.Context, key string, value []byte, expiration time.Duration) error {
-	m.items.Store(key, memoryStorageItem{
-		data:      value,
-		expiresAt: time.Now().Add(expiration),
-	})
-	return nil
-}
-
-func (m *MemoryStorage) Delete(_ context.Context, key string) error {
-	m.items.Delete(key)
-	return nil
 }

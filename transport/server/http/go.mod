@@ -8,6 +8,7 @@ replace (
 	github.com/agilsyofian/gosdk/core/observability/tracing => ./../../../core/observability/tracing
 	github.com/agilsyofian/gosdk/observability/logger => ./../../../core/observability/logger
 	github.com/agilsyofian/gosdk/security => ./../../../security
+	github.com/agilsyofian/gosdk/transport/idempotency => ./../../idempotency
 )
 
 require (
@@ -16,6 +17,7 @@ require (
 	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.1
 	github.com/agilsyofian/gosdk/observability/logger v0.0.1
 	github.com/agilsyofian/gosdk/security v0.0.1
+	github.com/agilsyofian/gosdk/transport/idempotency v0.0.1
 )
 
 require (
