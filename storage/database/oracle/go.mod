@@ -6,7 +6,6 @@ require (
 	github.com/sijms/go-ora/v2 v2.9.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	go.uber.org/fx v1.24.0
 )
 
 require (

@@ -153,9 +153,17 @@ var StorageModule = fx.Module("storage",
 				ConnMaxLifetime: 30 * time.Minute,
 			}
 		},
-		// Factory: registers OnStart ping & OnStop close hooks + k8s readiness probe
+		// Factory: pure Go constructor, with lifecycle hooks wired cleanly at bootstrap level
 		func(lc fx.Lifecycle, l logger.Logger, cfg postgres.Config, hr health.Registry) (database.Database, error) {
-			return postgres.NewPostgresDB(lc, l, cfg, hr)
+			db, err := postgres.NewPostgresDB(l, cfg, hr)
+			if err != nil {
+				return nil, err
+			}
+			lc.Append(fx.Hook{
+				OnStart: db.Connect,
+				OnStop:  func(ctx context.Context) error { return db.Close() },
+			})
+			return db, nil
 		},
 	),
 )

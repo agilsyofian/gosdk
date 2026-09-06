@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/fx"
 )
 
 // Ensure Database implements database.Database interface
@@ -32,15 +31,14 @@ type DB struct {
 	appName string
 }
 
-// NewPostgresDB creates an empty instance; call Connect afterward.
+// NewPostgresDB creates a PostgreSQL Database instance.
+// Call Connect(ctx) to establish the connection pool, or manage lifecycle via your application container.
 // If health.Registry is provided, it automatically registers a readiness check for this database.
 func NewPostgresDB(
-	lc fx.Lifecycle,
 	l logger.Logger,
 	cfg Config,
 	hrs ...health.Registry,
 ) (*DB, error) {
-
 	appName := coreContext.AppName(context.Background())
 
 	db := &DB{
@@ -55,41 +53,6 @@ func NewPostgresDB(
 			break
 		}
 	}
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			if err := db.Connect(ctx); err != nil {
-				l.Error(ctx, fmt.Sprintf("failed to connect database: %s", err.Error()), logger.LogPayload{
-					Type: "DATABASE",
-				})
-				return err
-			}
-
-			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-
-			if err := db.Ping(pingCtx); err != nil {
-				db.Close()
-				l.Error(ctx, fmt.Sprintf("failed to ping database: %s", err.Error()), logger.LogPayload{
-					Type: "DATABASE",
-				})
-				return fmt.Errorf("ping database: %w", err)
-			}
-
-			l.Info(ctx, "database connection established", logger.LogPayload{
-				Type:   "DATABASE",
-				Method: "START",
-			})
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			l.Info(ctx, "stopping database", logger.LogPayload{
-				Type:   "DATABASE",
-				Method: "SHUTDOWN",
-			})
-			return db.Close()
-		},
-	})
 
 	return db, nil
 }

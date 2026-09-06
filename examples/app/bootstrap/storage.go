@@ -1,6 +1,9 @@
 package bootstrap
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
@@ -22,7 +25,33 @@ var Storage = fx.Module("storage",
 
 		func(cfg config.AppConfig) postgres.Config { return cfg.Storage.Postgres },
 		func(lc fx.Lifecycle, l logger.Logger, cfg postgres.Config, hr health.Registry) (database.Database, error) {
-			return postgres.NewPostgresDB(lc, l, cfg, hr)
+			db, err := postgres.NewPostgresDB(l, cfg, hr)
+			if err != nil {
+				return nil, err
+			}
+			lc.Append(fx.Hook{
+				OnStart: func(ctx context.Context) error {
+					if err := db.Connect(ctx); err != nil {
+						l.Error(ctx, fmt.Sprintf("failed to connect database: %s", err.Error()), logger.LogPayload{
+							Type: "DATABASE",
+						})
+						return err
+					}
+					l.Info(ctx, "database connection established", logger.LogPayload{
+						Type:   "DATABASE",
+						Method: "START",
+					})
+					return nil
+				},
+				OnStop: func(ctx context.Context) error {
+					l.Info(ctx, "stopping database", logger.LogPayload{
+						Type:   "DATABASE",
+						Method: "SHUTDOWN",
+					})
+					return db.Close()
+				},
+			})
+			return db, nil
 		},
 	),
 )
