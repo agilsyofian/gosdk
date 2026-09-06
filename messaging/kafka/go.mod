@@ -4,11 +4,13 @@ go 1.26.8
 
 replace github.com/agilsyofian/gosdk/core/observability => ./../../core/observability
 
-require (
-	github.com/agilsyofian/gosdk/core/observability v0.0.1
-)
+require github.com/agilsyofian/gosdk/core/observability v0.0.1
 
-require github.com/xdg-go/scram v1.2.0 // indirect
+require (
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.2.0 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
+)
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -24,11 +26,11 @@ require (
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/segmentio/kafka-go v0.4.47
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.46.0 // indirect
+	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	golang.org/x/net v0.58.0 // indirect

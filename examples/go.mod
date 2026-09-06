@@ -15,6 +15,8 @@ replace (
 	github.com/agilsyofian/gosdk/security/session/redis => ./../security/session/redis
 	github.com/agilsyofian/gosdk/storage/cache => ./../storage/cache
 	github.com/agilsyofian/gosdk/storage/database => ./../storage/database
+	github.com/agilsyofian/gosdk/storage/objectstorage => ./../storage/objectstorage
+	github.com/agilsyofian/gosdk/storage/objectstorage/s3 => ./../storage/objectstorage/s3
 	github.com/agilsyofian/gosdk/storage/postgres => ./../storage/database/postgres
 	github.com/agilsyofian/gosdk/storage/redis => ./../storage/cache/redis
 	github.com/agilsyofian/gosdk/tools/mapgen => ./../tools/mapgen
@@ -36,6 +38,8 @@ require (
 	github.com/agilsyofian/gosdk/security/session/redis v0.0.1
 	github.com/agilsyofian/gosdk/storage/cache v0.0.1
 	github.com/agilsyofian/gosdk/storage/database v0.0.1
+	github.com/agilsyofian/gosdk/storage/objectstorage v0.0.1
+	github.com/agilsyofian/gosdk/storage/objectstorage/s3 v0.0.1
 	github.com/agilsyofian/gosdk/storage/postgres v0.0.1
 	github.com/agilsyofian/gosdk/storage/redis v0.0.1
 	github.com/agilsyofian/gosdk/tools/mapgen v0.0.1
@@ -133,6 +137,7 @@ require (
 )
 
 require (
+	github.com/gin-contrib/cors v1.7.8 // indirect
 	github.com/go-openapi/swag/conv v0.29.1 // indirect
 	github.com/go-openapi/swag/jsonutils v0.29.1 // indirect
 	github.com/go-openapi/swag/loading v0.29.1 // indirect

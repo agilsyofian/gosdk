@@ -18,11 +18,12 @@ require (
 	github.com/agilsyofian/gosdk/security v0.0.1
 	github.com/agilsyofian/gosdk/security/signature v0.0.1
 	github.com/agilsyofian/gosdk/transport/idempotency v0.0.1
+	github.com/gin-contrib/cors v1.7.8
+	github.com/stretchr/testify v1.12.1
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/gin-contrib/cors v1.7.8 // indirect
 	github.com/go-openapi/swag/conv v0.29.1 // indirect
 	github.com/go-openapi/swag/jsonutils v0.29.1 // indirect
 	github.com/go-openapi/swag/loading v0.29.1 // indirect
@@ -84,9 +85,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
-	go.uber.org/dig v1.19.0 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.30.0 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/net v0.58.0 // indirect

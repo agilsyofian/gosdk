@@ -9,6 +9,8 @@ import (
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/agilsyofian/gosdk/storage/database"
+	"github.com/agilsyofian/gosdk/storage/objectstorage"
+	"github.com/agilsyofian/gosdk/storage/objectstorage/s3"
 	"github.com/agilsyofian/gosdk/storage/postgres"
 	"github.com/agilsyofian/gosdk/storage/redis"
 	"go.uber.org/fx"
@@ -64,6 +66,23 @@ var Storage = fx.Module("storage",
 				},
 			})
 			return db, nil
+		},
+
+		// Object Storage (S3 / MinIO)
+		func(cfg config.AppConfig) s3.Config {
+			return cfg.Storage.ObjectStorage
+		},
+		func(lc fx.Lifecycle, l logger.Logger, cfg s3.Config, hr health.Registry) (objectstorage.Storage, error) {
+			store, err := s3.NewS3Storage(l, cfg, hr)
+			if err != nil {
+				return nil, err
+			}
+			lc.Append(fx.Hook{
+				OnStop: func(ctx context.Context) error {
+					return store.Close(ctx)
+				},
+			})
+			return store, nil
 		},
 	),
 )

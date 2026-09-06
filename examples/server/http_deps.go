@@ -7,6 +7,7 @@ import (
 	userHandler "github.com/agilsyofian/gosdk/example/modules/user/handler/http"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/storage/cache"
+	"github.com/agilsyofian/gosdk/storage/objectstorage"
 	"github.com/agilsyofian/gosdk/transport/server/http"
 	"go.uber.org/fx"
 )
@@ -14,11 +15,12 @@ import (
 type HttpHandlerDeps struct {
 	fx.In
 
-	AppConfig   config.AppConfig
-	Server      *http.Server
-	Health      health.Registry
-	Security    security.SecurityManager
-	Cache       cache.Cache
-	AuthHandler authHandler.IAuthHandler
-	UserHandler userHandler.IUserHandler
+	AppConfig     config.AppConfig
+	Server        *http.Server
+	Health        health.Registry
+	Security      security.SecurityManager
+	Cache         cache.Cache
+	ObjectStorage objectstorage.Storage
+	AuthHandler   authHandler.IAuthHandler
+	UserHandler   userHandler.IUserHandler
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
+	objectstorage "github.com/agilsyofian/gosdk/storage/objectstorage/s3"
 	"github.com/agilsyofian/gosdk/storage/postgres"
 	"github.com/agilsyofian/gosdk/storage/redis"
 	clientGrpc "github.com/agilsyofian/gosdk/transport/client/grpc"
@@ -40,8 +41,9 @@ type AppConfig struct {
 	} `mapstructure:"observability" validate:"required"`
 
 	Storage struct {
-		Cache    redis.Config    `mapstructure:"cache" validate:"required"`
-		Postgres postgres.Config `mapstructure:"postgres" validate:"required"`
+		Cache         redis.Config         `mapstructure:"cache" validate:"required"`
+		Postgres      postgres.Config      `mapstructure:"postgres" validate:"required"`
+		ObjectStorage objectstorage.Config `mapstructure:"objectstorage"`
 	} `mapstructure:"storage" validate:"required"`
 
 	HttpIntegrations map[string]clientHttp.Config `mapstructure:"http_integrations"`
