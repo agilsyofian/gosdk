@@ -168,12 +168,15 @@ func (c *Client) Consumer(topic, groupID string, opts ...ConsumerOption) (*Consu
 	})
 
 	cons := &Consumer{
-		reader:      r,
-		topic:       topic,
-		groupID:     groupID,
-		concurrency: co.concurrency,
-		appName:     c.opts.appName,
-		logger:      c.opts.logger,
+		reader:               r,
+		topic:                topic,
+		groupID:              groupID,
+		concurrency:          co.concurrency,
+		appName:              c.opts.appName,
+		logger:               c.opts.logger,
+		maxConsecutiveErrors: co.maxConsecutiveErrors,
+		backoffInitialDelay:  co.backoffInitialDelay,
+		backoffMaxDelay:      co.backoffMaxDelay,
 	}
 
 	if co.deadLetterTopic != "" {

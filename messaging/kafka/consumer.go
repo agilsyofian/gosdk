@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -31,13 +32,16 @@ type Handler func(ctx context.Context, msg *Message) error
 // Consumer reads messages from a single Kafka topic within a consumer
 // group. It is created via Client.Consumer.
 type Consumer struct {
-	reader      kafkaReader
-	topic       string
-	groupID     string
-	concurrency int
-	appName     string
-	logger      logger.Logger
-	dlq         *Producer // set only when WithDeadLetterTopic was used
+	reader               kafkaReader
+	topic                string
+	groupID              string
+	concurrency          int
+	appName              string
+	logger               logger.Logger
+	dlq                  *Producer // set only when WithDeadLetterTopic was used
+	maxConsecutiveErrors int
+	backoffInitialDelay  time.Duration
+	backoffMaxDelay      time.Duration
 
 	closed atomic.Bool
 }
@@ -46,6 +50,32 @@ type Consumer struct {
 // topic/group pair the record belongs to.
 func (c *Consumer) logPayload(ctx context.Context, method string) logger.LogPayload {
 	return newLogPayload(ctx, c.appName, method, fmt.Sprintf("/kafka/%s/%s", c.topic, c.groupID))
+}
+
+func (c *Consumer) effectiveMaxConsecutiveErrors() int {
+	if c.maxConsecutiveErrors > 0 {
+		return c.maxConsecutiveErrors
+	}
+	return 10
+}
+
+func (c *Consumer) calculateBackoff(attempt int) time.Duration {
+	initial := c.backoffInitialDelay
+	if initial <= 0 {
+		initial = 200 * time.Millisecond
+	}
+	maxDelay := c.backoffMaxDelay
+	if maxDelay <= 0 {
+		maxDelay = 2 * time.Second
+	}
+	if attempt > 30 {
+		return maxDelay
+	}
+	delay := initial * time.Duration(1<<(attempt-1))
+	if delay > maxDelay || delay < 0 {
+		return maxDelay
+	}
+	return delay
 }
 
 // Consume fetches messages and calls handler for each one until ctx is
@@ -85,22 +115,43 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 
 	sem := make(chan struct{}, c.concurrency)
 	var wg sync.WaitGroup
+	consecutiveErrors := 0
+	maxConsecutive := c.effectiveMaxConsecutiveErrors()
 
 	for {
 		km, err := c.reader.FetchMessage(ctx)
 		if err != nil {
-			// Stop accepting new work and let in-flight handlers finish
-			// before returning (messaging.md section 22).
-			wg.Wait()
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+				wg.Wait()
 				return err
 			}
 			if c.closed.Load() {
+				wg.Wait()
 				return ErrClosed
 			}
-			return fmt.Errorf("kafka: fetch topic=%s: %w", c.topic, err)
+
+			consecutiveErrors++
+			c.logger.Warn(ctx, fmt.Sprintf("kafka: transient fetch error (attempt %d/%d)", consecutiveErrors, maxConsecutive),
+				c.logPayload(ctx, "FETCH_ERROR").
+					WithMetadata("attempt", strconv.Itoa(consecutiveErrors)).
+					WithMetadata("max_attempts", strconv.Itoa(maxConsecutive)).
+					WithError(err.Error()))
+
+			if consecutiveErrors >= maxConsecutive {
+				wg.Wait()
+				return fmt.Errorf("kafka: fetch topic=%s failed after %d consecutive attempts: %w", c.topic, consecutiveErrors, err)
+			}
+
+			select {
+			case <-ctx.Done():
+				wg.Wait()
+				return ctx.Err()
+			case <-time.After(c.calculateBackoff(consecutiveErrors)):
+			}
+			continue
 		}
 
+		consecutiveErrors = 0
 		msg := fromKafkaMessage(km)
 
 		sem <- struct{}{}
@@ -113,7 +164,7 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 	}
 }
 
-func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message, handler Handler) {
+func (c *Consumer) buildMessageContext(ctx context.Context, msg *Message) context.Context {
 	traceID := ""
 	if msg.Headers != nil {
 		traceID = msg.Headers["x-trace-id"]
@@ -125,21 +176,46 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 		traceID = newMessageID()
 	}
 
-	sessionID := ""
-	if msg.Headers != nil {
-		sessionID = msg.Headers["x-session-id"]
-	}
-
 	msgCtx := tracing.WithAppName(ctx, c.appName)
 	msgCtx = tracing.WithTraceID(msgCtx, traceID)
-	if sessionID != "" {
-		msgCtx = tracing.WithSessionID(msgCtx, sessionID)
+	if msg.Headers != nil && msg.Headers["x-session-id"] != "" {
+		msgCtx = tracing.WithSessionID(msgCtx, msg.Headers["x-session-id"])
 	}
+	return msgCtx
+}
 
+func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message, handler Handler) {
+	msgCtx := c.buildMessageContext(ctx, msg)
 	start := time.Now()
-	err := handler(msgCtx, msg)
-	dur := time.Since(start)
 
+	var err error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				buf := make([]byte, 2048)
+				n := runtime.Stack(buf, false)
+				stackTrace := string(buf[:n])
+				err = fmt.Errorf("panic: %v", r)
+
+				c.logger.Error(msgCtx, "kafka: handler panicked",
+					c.logPayload(msgCtx, "PANIC").
+						WithMetadata("topic", msg.Topic).
+						WithMetadata("partition", strconv.Itoa(msg.Partition)).
+						WithMetadata("offset", strconv.FormatInt(msg.Offset, 10)).
+						WithMetadata("panic", fmt.Sprintf("%v", r)).
+						WithMetadata("stack", stackTrace).
+						WithError(err.Error()))
+			}
+		}()
+		err = handler(msgCtx, msg)
+	}()
+
+	dur := time.Since(start)
+	c.finalizeMessage(msgCtx, km, msg, err, dur)
+}
+
+func (c *Consumer) finalizeMessage(msgCtx context.Context, km kafkago.Message, msg *Message, err error, dur time.Duration) {
 	// Finalization (commit / dead-letter publish) must be able to finish
 	// even when ctx was cancelled to signal shutdown while handler was
 	// still running above — otherwise "finish in-flight work" at
@@ -177,6 +253,10 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 		return
 	}
 
+	c.publishDeadLetterAndCommit(finalizeCtx, msgCtx, km, msg, base, err)
+}
+
+func (c *Consumer) publishDeadLetterAndCommit(finalizeCtx, msgCtx context.Context, km kafkago.Message, msg *Message, base logger.LogPayload, err error) {
 	dlqMsg := &Message{
 		Payload:     msg.Payload,
 		ContentType: msg.ContentType,
@@ -192,7 +272,7 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 	dlqMsg.Headers["x-failed-at"] = time.Now().UTC().Format(time.RFC3339)
 
 	if derr := c.dlq.Publish(finalizeCtx, dlqMsg); derr != nil {
-		c.logger.Error(ctx, "kafka: dead-letter publish failed", base.WithError(derr.Error()))
+		c.logger.Error(msgCtx, "kafka: dead-letter publish failed", base.WithError(derr.Error()))
 		// Do not commit: the intended delivery outcome (preservation in
 		// the dead-letter topic) was not established (section 16).
 		return
@@ -201,7 +281,7 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 	// The failed message is now preserved in the dead-letter topic, so
 	// it is safe to advance past it on the source partition.
 	if cerr := c.reader.CommitMessages(finalizeCtx, km); cerr != nil {
-		c.logger.Error(ctx, "kafka: commit after dead-letter failed", base.WithError(cerr.Error()))
+		c.logger.Error(msgCtx, "kafka: commit after dead-letter failed", base.WithError(cerr.Error()))
 	}
 }
 

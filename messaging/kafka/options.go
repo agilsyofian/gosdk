@@ -135,19 +135,25 @@ func WithCompression(c kafkago.Compression) ProducerOption {
 type ConsumerOption func(*consumerOptions)
 
 type consumerOptions struct {
-	concurrency     int
-	startOffset     int64
-	minBytes        int
-	maxBytes        int
-	deadLetterTopic string
+	concurrency          int
+	startOffset          int64
+	minBytes             int
+	maxBytes             int
+	deadLetterTopic      string
+	maxConsecutiveErrors int
+	backoffInitialDelay  time.Duration
+	backoffMaxDelay      time.Duration
 }
 
 func defaultConsumerOptions() consumerOptions {
 	return consumerOptions{
-		concurrency: 1,
-		startOffset: kafkago.FirstOffset,
-		minBytes:    1,
-		maxBytes:    10e6, // 10MB
+		concurrency:          1,
+		startOffset:          kafkago.FirstOffset,
+		minBytes:             1,
+		maxBytes:             10e6, // 10MB
+		maxConsecutiveErrors: 10,
+		backoffInitialDelay:  200 * time.Millisecond,
+		backoffMaxDelay:      2 * time.Second,
 	}
 }
 
@@ -183,4 +189,27 @@ func WithFetchBounds(minBytes, maxBytes int) ConsumerOption {
 // it on restart/rebalance rather than it being silently dropped.
 func WithDeadLetterTopic(topic string) ConsumerOption {
 	return func(o *consumerOptions) { o.deadLetterTopic = topic }
+}
+
+// WithMaxConsecutiveErrors sets the maximum number of consecutive fetch errors
+// allowed before the consumer loop terminates. Defaults to 10. Must be >= 1.
+func WithMaxConsecutiveErrors(n int) ConsumerOption {
+	return func(o *consumerOptions) {
+		if n > 0 {
+			o.maxConsecutiveErrors = n
+		}
+	}
+}
+
+// WithFetchBackoff bounds the backoff delay when retrying after a transient
+// fetch error. Defaults to 200ms initial and 2s maximum.
+func WithFetchBackoff(initial, max time.Duration) ConsumerOption {
+	return func(o *consumerOptions) {
+		if initial > 0 {
+			o.backoffInitialDelay = initial
+		}
+		if max > 0 {
+			o.backoffMaxDelay = max
+		}
+	}
 }
