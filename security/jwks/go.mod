@@ -4,14 +4,14 @@ go 1.26.8
 
 replace (
 	github.com/agilsyofian/gosdk/core/observability => ./../../core/observability
-	github.com/agilsyofian/gosdk/resilience => ./../../core/resilience
+	github.com/agilsyofian/gosdk/core/resilience => ./../../core/resilience
 	github.com/agilsyofian/gosdk/transport/client/http => ./../../transport/client/http
 	github.com/agilsyofian/gosdk/utils => ./../../utils
 )
 
 require (
 	github.com/agilsyofian/gosdk/core/observability v0.0.1
-	github.com/agilsyofian/gosdk/resilience v0.0.1
+	github.com/agilsyofian/gosdk/core/resilience v0.0.1
 	github.com/agilsyofian/gosdk/transport/client/http v0.0.1
 	github.com/agilsyofian/gosdk/utils v0.0.1
 	golang.org/x/sync v0.22.0

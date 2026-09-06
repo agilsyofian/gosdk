@@ -7,8 +7,8 @@ import (
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
-	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
-	"github.com/agilsyofian/gosdk/resilience/retry"
+	"github.com/agilsyofian/gosdk/core/resilience/circuitbreaker"
+	"github.com/agilsyofian/gosdk/core/resilience/retry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"

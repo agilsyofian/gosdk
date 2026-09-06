@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
-	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
-	"github.com/agilsyofian/gosdk/resilience/retry"
+	"github.com/agilsyofian/gosdk/core/resilience/circuitbreaker"
+	"github.com/agilsyofian/gosdk/core/resilience/retry"
 )
 
 type IClient interface {

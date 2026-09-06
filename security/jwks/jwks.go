@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
-	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
-	"github.com/agilsyofian/gosdk/resilience/retry"
+	"github.com/agilsyofian/gosdk/core/resilience/circuitbreaker"
+	"github.com/agilsyofian/gosdk/core/resilience/retry"
 	"github.com/agilsyofian/gosdk/transport/client/http"
 	"github.com/agilsyofian/gosdk/utils/crypto"
 	"golang.org/x/sync/singleflight"

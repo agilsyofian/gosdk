@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/agilsyofian/gosdk/resilience/retry"
+	"github.com/agilsyofian/gosdk/core/resilience/retry"
 )
 
 func Retry(p *retry.Policy) Middleware {

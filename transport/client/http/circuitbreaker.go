@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
+	"github.com/agilsyofian/gosdk/core/resilience/circuitbreaker"
 )
 
 func CircuitBreaker(p *circuitbreaker.Policy) Middleware {

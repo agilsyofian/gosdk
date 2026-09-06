@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
-	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
-	"github.com/agilsyofian/gosdk/resilience/retry"
+	"github.com/agilsyofian/gosdk/core/resilience/circuitbreaker"
+	"github.com/agilsyofian/gosdk/core/resilience/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/resilience
+module github.com/agilsyofian/gosdk/core/resilience
 
 go 1.26.8
 
