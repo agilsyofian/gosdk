@@ -201,6 +201,12 @@ func (o *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) 
 	return tx, err
 }
 
+// RunInTx executes fn inside a managed database transaction with the provided sql.TxOptions.
+// Automatically commits on nil error, and rolls back on error or panic.
+func (o *DB) RunInTx(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, tx *sql.Tx) error) error {
+	return database.RunInTxWithOptions(ctx, o, opts, fn)
+}
+
 func (o *DB) startSpan(ctx context.Context, operation string, query string, args ...any) (context.Context, trace.Span) {
 	if !o.cfg.Tracing.Enabled {
 		return ctx, trace.SpanFromContext(ctx)

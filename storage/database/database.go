@@ -5,10 +5,18 @@ import (
 	"database/sql"
 )
 
+// Transactor is the contract for starting database transactions.
+// Both Database and standard *sql.DB satisfy this interface.
+type Transactor interface {
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+}
+
 // Database is the main contract that every implementation must satisfy
 // (Oracle, PostgreSQL, MySQL, etc). This way, business code only depends
 // on this interface, not on a specific driver.
 type Database interface {
+	Transactor
+
 	// Connect opens a connection to the database according to the given Config.
 	Connect(ctx context.Context) error
 
@@ -27,8 +35,9 @@ type Database interface {
 	// QueryRow runs a query that returns a single row.
 	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
 
-	// BeginTx starts a transaction.
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	// RunInTx runs fn inside a managed transaction with the given options (or nil for default).
+	// Automatically commits on nil error, and rolls back on error or panic.
+	RunInTx(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, tx *sql.Tx) error) error
 
 	// Driver returns the driver name, useful for logging/debugging.
 	Driver() string
