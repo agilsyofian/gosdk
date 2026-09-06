@@ -72,7 +72,7 @@ func NewServer(
 	// 2. Recovery Middleware (Catch panics & format standardized error response)
 	engine.Use(
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
-		middleware.Recovery(appName),
+		middleware.Recovery(l, appName),
 	)
 
 	// 3. Tracer Middleware (Extract OpenTelemetry trace context)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	kafkago "github.com/segmentio/kafka-go"
 )
 
@@ -113,8 +114,30 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 }
 
 func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message, handler Handler) {
+	traceID := ""
+	if msg.Headers != nil {
+		traceID = msg.Headers["x-trace-id"]
+		if traceID == "" {
+			traceID = msg.Headers["traceparent"]
+		}
+	}
+	if traceID == "" {
+		traceID = newMessageID()
+	}
+
+	sessionID := ""
+	if msg.Headers != nil {
+		sessionID = msg.Headers["x-session-id"]
+	}
+
+	msgCtx := tracing.WithAppName(ctx, c.appName)
+	msgCtx = tracing.WithTraceID(msgCtx, traceID)
+	if sessionID != "" {
+		msgCtx = tracing.WithSessionID(msgCtx, sessionID)
+	}
+
 	start := time.Now()
-	err := handler(ctx, msg)
+	err := handler(msgCtx, msg)
 	dur := time.Since(start)
 
 	// Finalization (commit / dead-letter publish) must be able to finish
@@ -124,12 +147,12 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 	// commit that in-flight work is supposed to end with. finalizeCtx
 	// keeps any values ctx carries (trace/correlation metadata) but is
 	// bounded by its own timeout instead of the caller's cancellation.
-	finalizeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	finalizeCtx, cancel := context.WithTimeout(context.WithoutCancel(msgCtx), 10*time.Second)
 	defer cancel()
 
 	// One skeleton per delivered message; WithError returns a copy, so an
 	// error attached to one log line never leaks into the next.
-	base := c.logPayload(ctx, "CONSUME").
+	base := c.logPayload(msgCtx, "CONSUME").
 		WithMetadata("topic", msg.Topic).
 		WithMetadata("key", string(msg.Key)).
 		WithMetadata("partition", strconv.Itoa(msg.Partition)).
@@ -139,13 +162,13 @@ func (c *Consumer) process(ctx context.Context, km kafkago.Message, msg *Message
 
 	if err == nil {
 		if cerr := c.reader.CommitMessages(finalizeCtx, km); cerr != nil {
-			c.logger.Error(ctx, "kafka: commit failed", base.WithError(cerr.Error()))
+			c.logger.Error(msgCtx, "kafka: commit failed", base.WithError(cerr.Error()))
 		}
-		c.logger.Info(ctx, "kafka: handled", base)
+		c.logger.Info(msgCtx, "kafka: handled", base)
 		return
 	}
 
-	c.logger.Warn(ctx, "kafka: handler failed", base.WithError(err.Error()))
+	c.logger.Warn(msgCtx, "kafka: handler failed", base.WithError(err.Error()))
 
 	if c.dlq == nil {
 		// No dead-letter topic configured: leave the offset uncommitted

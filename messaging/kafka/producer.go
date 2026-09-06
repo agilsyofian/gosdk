@@ -9,6 +9,7 @@ import (
 	kafkago "github.com/segmentio/kafka-go"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
 // kafkaWriter is the subset of *kafkago.Writer this package depends on.
@@ -54,6 +55,28 @@ func (p *Producer) Publish(ctx context.Context, msg *Message) error {
 	topic := msg.Topic
 	if topic == "" {
 		topic = p.topic
+	}
+
+	if msg.Headers == nil {
+		msg.Headers = make(map[string]string)
+	}
+
+	traceID := msg.Headers["x-trace-id"]
+	if traceID == "" {
+		traceID = msg.Headers["traceparent"]
+	}
+	if traceID == "" {
+		traceID = tracing.TraceID(ctx)
+	}
+	if traceID == "" {
+		traceID = newMessageID()
+	}
+	msg.Headers["x-trace-id"] = traceID
+
+	if msg.Headers["x-session-id"] == "" {
+		if sess := tracing.SessionID(ctx); sess != "" {
+			msg.Headers["x-session-id"] = sess
+		}
 	}
 
 	headers := make([]kafkago.Header, 0, len(msg.Headers)+2)

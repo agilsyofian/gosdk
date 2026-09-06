@@ -9,6 +9,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
 // amqpPublisher is the subset of *amqp.Channel this package's Producer
@@ -51,6 +52,34 @@ func (p *Producer) Publish(ctx context.Context, msg *Message) error {
 
 	if msg.ID == "" {
 		msg.ID = newMessageID()
+	}
+
+	if msg.Headers == nil {
+		msg.Headers = make(map[string]string)
+	}
+
+	traceID := msg.Headers["x-trace-id"]
+	if traceID == "" {
+		traceID = msg.Headers["traceparent"]
+	}
+	if traceID == "" {
+		traceID = msg.CorrelationID
+	}
+	if traceID == "" {
+		traceID = tracing.TraceID(ctx)
+	}
+	if traceID == "" {
+		traceID = newMessageID()
+	}
+	msg.Headers["x-trace-id"] = traceID
+	if msg.CorrelationID == "" {
+		msg.CorrelationID = traceID
+	}
+
+	if msg.Headers["x-session-id"] == "" {
+		if sess := tracing.SessionID(ctx); sess != "" {
+			msg.Headers["x-session-id"] = sess
+		}
 	}
 
 	headers := make(amqp.Table, len(msg.Headers))

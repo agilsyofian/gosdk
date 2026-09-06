@@ -12,6 +12,7 @@ import (
 	kafkago "github.com/segmentio/kafka-go"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
 // fakeReader is the mock transport seam for Consumer tests (messaging.md
@@ -324,5 +325,58 @@ func TestConsumer_Close(t *testing.T) {
 
 	if err := c.Consume(context.Background(), func(context.Context, *Message) error { return nil }); !errors.Is(err, ErrClosed) {
 		t.Errorf("Consume() after Close() error = %v, want ErrClosed", err)
+	}
+}
+
+func TestConsumer_TraceIDPropagation(t *testing.T) {
+	fr := &fakeReader{
+		messages: []kafkago.Message{
+			{
+				Topic:  "orders",
+				Offset: 1,
+				Value:  []byte("with-header"),
+				Headers: []kafkago.Header{
+					{Key: "x-trace-id", Value: []byte("trace-xyz-123")},
+					{Key: "x-session-id", Value: []byte("sess-abc-789")},
+				},
+			},
+			{
+				Topic:  "orders",
+				Offset: 2,
+				Value:  []byte("without-header"),
+			},
+		},
+	}
+	c := newTestConsumer(fr, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var traces []string
+	var sessions []string
+
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Consume(ctx, func(hCtx context.Context, msg *Message) error {
+			traces = append(traces, tracing.TraceID(hCtx))
+			sessions = append(sessions, tracing.SessionID(hCtx))
+			if len(traces) == 2 {
+				cancel()
+			}
+			return nil
+		})
+	}()
+
+	<-done
+
+	if len(traces) != 2 {
+		t.Fatalf("expected 2 handled messages, got %d", len(traces))
+	}
+	if traces[0] != "trace-xyz-123" {
+		t.Errorf("first message trace = %s, want trace-xyz-123", traces[0])
+	}
+	if sessions[0] != "sess-abc-789" {
+		t.Errorf("first message session = %s, want sess-abc-789", sessions[0])
+	}
+	if traces[1] == "" {
+		t.Error("second message trace was empty, expected fallback generated trace ID")
 	}
 }

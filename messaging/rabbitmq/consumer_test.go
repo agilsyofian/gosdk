@@ -12,6 +12,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
 // fakeAcknowledger backs amqp.Delivery.Ack/Nack/Reject in tests.
@@ -322,5 +323,59 @@ func TestConsumer_Close(t *testing.T) {
 
 	if err := c.Consume(context.Background(), func(context.Context, *Message) error { return nil }); !errors.Is(err, ErrClosed) {
 		t.Errorf("Consume() after Close() error = %v, want ErrClosed", err)
+	}
+}
+
+func TestConsumer_TraceIDPropagation(t *testing.T) {
+	deliveries := make(chan amqp.Delivery, 2)
+	fa := &fakeAcknowledger{}
+
+	deliveries <- amqp.Delivery{
+		Acknowledger:  fa,
+		DeliveryTag:   1,
+		Body:          []byte("with-correlation"),
+		CorrelationId: "trace-rmq-456",
+		Headers: amqp.Table{
+			"x-session-id": "sess-rmq-789",
+		},
+	}
+	deliveries <- amqp.Delivery{
+		Acknowledger: fa,
+		DeliveryTag:  2,
+		Body:         []byte("without-correlation"),
+	}
+
+	fc := &fakeConsumerChannel{deliveries: deliveries}
+	c := newTestConsumer(fc, 1, false)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var traces []string
+	var sessions []string
+
+	done := make(chan error, 1)
+	go func() {
+		done <- c.Consume(ctx, func(hCtx context.Context, msg *Message) error {
+			traces = append(traces, tracing.TraceID(hCtx))
+			sessions = append(sessions, tracing.SessionID(hCtx))
+			if len(traces) == 2 {
+				cancel()
+			}
+			return nil
+		})
+	}()
+
+	<-done
+
+	if len(traces) != 2 {
+		t.Fatalf("expected 2 handled messages, got %d", len(traces))
+	}
+	if traces[0] != "trace-rmq-456" {
+		t.Errorf("first message trace = %s, want trace-rmq-456", traces[0])
+	}
+	if sessions[0] != "sess-rmq-789" {
+		t.Errorf("first message session = %s, want sess-rmq-789", sessions[0])
+	}
+	if traces[1] == "" {
+		t.Error("second message trace was empty, expected fallback generated trace ID")
 	}
 }

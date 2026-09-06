@@ -11,6 +11,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
 // amqpConsumerChannel is the subset of *amqp.Channel this package's
@@ -126,13 +127,38 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 func (c *Consumer) process(ctx context.Context, d amqp.Delivery, handler Handler) {
 	msg := fromDelivery(d)
 
+	traceID := ""
+	if msg.Headers != nil {
+		traceID = msg.Headers["x-trace-id"]
+		if traceID == "" {
+			traceID = msg.Headers["traceparent"]
+		}
+	}
+	if traceID == "" {
+		traceID = msg.CorrelationID
+	}
+	if traceID == "" {
+		traceID = newMessageID()
+	}
+
+	sessionID := ""
+	if msg.Headers != nil {
+		sessionID = msg.Headers["x-session-id"]
+	}
+
+	msgCtx := tracing.WithAppName(ctx, c.appName)
+	msgCtx = tracing.WithTraceID(msgCtx, traceID)
+	if sessionID != "" {
+		msgCtx = tracing.WithSessionID(msgCtx, sessionID)
+	}
+
 	start := time.Now()
-	err := handler(ctx, msg)
+	err := handler(msgCtx, msg)
 	dur := time.Since(start)
 
 	// One skeleton per delivered message; WithError returns a copy, so an
 	// error attached to one log line never leaks into the next.
-	base := c.logPayload(ctx, "CONSUME").
+	base := c.logPayload(msgCtx, "CONSUME").
 		WithMetadata("queue", c.queue).
 		WithMetadata("delivery_tag", fmt.Sprintf("%d", d.DeliveryTag)).
 		WithMetadata("message_id", msg.ID)
@@ -140,16 +166,16 @@ func (c *Consumer) process(ctx context.Context, d amqp.Delivery, handler Handler
 
 	if err == nil {
 		if aerr := d.Ack(false); aerr != nil {
-			c.logger.Error(ctx, "rabbitmq: ack failed", base.WithError(aerr.Error()))
+			c.logger.Error(msgCtx, "rabbitmq: ack failed", base.WithError(aerr.Error()))
 		}
-		c.logger.Debug(ctx, "rabbitmq: handled", base)
+		c.logger.Debug(msgCtx, "rabbitmq: handled", base)
 		return
 	}
 
-	c.logger.Warn(ctx, "rabbitmq: handler failed", base.WithError(err.Error()))
+	c.logger.Warn(msgCtx, "rabbitmq: handler failed", base.WithError(err.Error()))
 
 	if nerr := d.Nack(false, c.requeueOnFailure); nerr != nil {
-		c.logger.Error(ctx, "rabbitmq: nack failed", base.WithError(nerr.Error()))
+		c.logger.Error(msgCtx, "rabbitmq: nack failed", base.WithError(nerr.Error()))
 	}
 }
 

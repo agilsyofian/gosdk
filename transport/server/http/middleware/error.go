@@ -42,13 +42,19 @@ func Error(l logger.Logger, appName string, showErrorDetail bool) gin.HandlerFun
 			Error:     c.Errors.Last().Err,
 		}
 
-		defer func() {
-			l.Error(
-				c.Request.Context(),
-				fmt.Sprintf("%s %s", "ERROR", appName),
-				payload,
-			)
-		}()
+		if details, ok := c.Get(PanicDetailsKey); ok {
+			payload.Error = details
+		}
+
+		if logged, _ := c.Get(PanicLoggedKey); logged != true {
+			defer func() {
+				l.Error(
+					c.Request.Context(),
+					fmt.Sprintf("%s %s", "ERROR", appName),
+					payload,
+				)
+			}()
+		}
 
 		err := c.Errors.Last().Err
 
