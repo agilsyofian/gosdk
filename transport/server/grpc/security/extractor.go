@@ -17,21 +17,21 @@ import (
 type Config struct {
 	// Required, if true, causes the interceptor to reject calls with
 	// no valid credential (codes.Unauthenticated).
-	Required bool
+	Required bool `mapstructure:"required"`
 
 	// SessionMetadataKey is the metadata key holding a session ID,
 	// e.g. "session-id". Leave empty to disable.
-	SessionMetadataKey string
+	SessionMetadataKey string `mapstructure:"session_metadata_key"`
 
-	EnableBearer bool
-	EnableBasic  bool
-	EnableAPIKey bool
+	EnableBearer bool `mapstructure:"enable_bearer"`
+	EnableBasic  bool `mapstructure:"enable_basic"`
+	EnableAPIKey bool `mapstructure:"enable_api_key"`
 
 	// APIKeyMetadataKey is the metadata key used for API key
 	// extraction. Defaults to "x-api-key" if empty.
-	APIKeyMetadataKey string
+	APIKeyMetadataKey string `mapstructure:"api_key_metadata_key"`
 
-	AllowedTypes []security.CredentialType
+	AllowedTypes []security.CredentialType `mapstructure:"allowed_types"`
 }
 
 func (c Config) apiKeyMetadataKey() string {

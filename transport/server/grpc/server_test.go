@@ -6,9 +6,14 @@ import (
 	"testing"
 	"time"
 
+	healthcheck "github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	securityCore "github.com/agilsyofian/gosdk/security"
+	grpcSecurity "github.com/agilsyofian/gosdk/transport/server/grpc/security"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/fx/fxtest"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -259,4 +264,144 @@ func TestServer_PostStartModificationProtection(t *testing.T) {
 		return handler(ctx, req)
 	})
 	s.SetServerOptions(grpc.MaxRecvMsgSize(1024))
+}
+
+func TestServer_ProductionConfig(t *testing.T) {
+	def := DefaultConfig()
+	assert.Equal(t, ":50051", def.Addr)
+	assert.Equal(t, 30*time.Second, def.ShutdownTimeout)
+	assert.Equal(t, uint32(1000), def.MaxConcurrentStreams)
+	assert.Equal(t, 16*1024*1024, def.MaxReceiveMessageSize)
+	assert.Equal(t, 16*1024*1024, def.MaxSendMessageSize)
+	assert.Equal(t, 120*time.Second, def.ConnectionTimeout)
+	assert.True(t, def.HealthCheckEnabled)
+
+	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
+	cfg := Config{
+		Addr:                  ":0",
+		MaxConcurrentStreams:  500,
+		MaxReceiveMessageSize: 8 * 1024 * 1024,
+		MaxSendMessageSize:    8 * 1024 * 1024,
+		ConnectionTimeout:     60 * time.Second,
+		HealthCheckEnabled:    true,
+		Keepalive: &KeepaliveConfig{
+			MaxConnectionIdle:     15 * time.Second,
+			MaxConnectionAge:      30 * time.Second,
+			MaxConnectionAgeGrace: 5 * time.Second,
+			Time:                  10 * time.Second,
+			Timeout:               3 * time.Second,
+			MinTime:               5 * time.Second,
+			PermitWithoutStream:   true,
+		},
+	}
+
+	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	assert.NotNil(t, s.Engine())
+	assert.NotNil(t, s.HealthServer())
+}
+
+func TestServer_HealthCheckingProtocol(t *testing.T) {
+	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
+	cfg := Config{
+		Addr:               ":0",
+		HealthCheckEnabled: true,
+	}
+
+	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer lis.Close()
+
+	go func() {
+		_ = s.Engine().Serve(lis)
+	}()
+
+	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure(), grpc.WithBlock())
+	assert.NoError(t, err)
+	defer conn.Close()
+
+	healthClient := grpc_health_v1.NewHealthClient(conn)
+
+	// Check serving status for overall server (empty string) and app name
+	resp, err := healthClient.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{Service: ""})
+	assert.NoError(t, err)
+	assert.Equal(t, grpc_health_v1.HealthCheckResponse_SERVING, resp.Status)
+
+	resp, err = healthClient.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{Service: "test-app"})
+	assert.NoError(t, err)
+	assert.Equal(t, grpc_health_v1.HealthCheckResponse_SERVING, resp.Status)
+
+	// Shutdown should set NOT_SERVING
+	_ = s.Shutdown(context.Background())
+	assert.Equal(t, grpc_health_v1.HealthCheckResponse_NOT_SERVING, s.checkServingStatus(""))
+	assert.Equal(t, grpc_health_v1.HealthCheckResponse_NOT_SERVING, s.checkServingStatus("test-app"))
+}
+
+func (s *Server) checkServingStatus(service string) grpc_health_v1.HealthCheckResponse_ServingStatus {
+	if s.healthServer == nil {
+		return grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN
+	}
+	ctx := context.Background()
+	resp, err := s.healthServer.Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: service})
+	if err != nil {
+		return grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN
+	}
+	return resp.Status
+}
+
+func TestServer_SetHealthRegistry(t *testing.T) {
+	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
+	cfg := Config{
+		Addr: ":0",
+	}
+
+	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	reg := healthcheck.NewRegistry()
+	s.SetHealthRegistry(reg)
+
+	// Before start -> DOWN
+	h := reg.CheckReadiness(context.Background())
+	assert.Equal(t, healthcheck.StatusDown, h.Status)
+
+	// Mark started -> UP
+	s.started = true
+	h = reg.CheckReadiness(context.Background())
+	assert.Equal(t, healthcheck.StatusUp, h.Status)
+
+	// In shutdown -> DOWN
+	s.inShutdown.Store(true)
+	h = reg.CheckReadiness(context.Background())
+	assert.Equal(t, healthcheck.StatusDown, h.Status)
+}
+
+type mockSecurityManager struct{}
+
+func (m *mockSecurityManager) Authenticate(ctx context.Context, cred securityCore.Credential) (*securityCore.SecurityContext, error) {
+	return &securityCore.SecurityContext{Authenticated: true}, nil
+}
+
+func (m *mockSecurityManager) AuthenticateSession(ctx context.Context, sessionID string) (*securityCore.SecurityContext, error) {
+	return &securityCore.SecurityContext{Authenticated: true}, nil
+}
+
+func (m *mockSecurityManager) Authorize(ctx context.Context, permission string) error {
+	return nil
+}
+
+func TestServer_SetSecurityManager(t *testing.T) {
+	l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
+	cfg := Config{
+		Addr: ":0",
+		Security: &grpcSecurity.Config{
+			Required:     true,
+			EnableBearer: true,
+		},
+	}
+
+	s := NewServer("test-app", fxtest.NewLifecycle(t), l, cfg, nil)
+	mgr := &mockSecurityManager{}
+	s.SetSecurityManager(mgr)
+
+	assert.NotNil(t, s.securityInterceptor)
 }

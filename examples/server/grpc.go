@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/agilsyofian/gosdk/transport/server/grpc"
-	grpcsecurity "github.com/agilsyofian/gosdk/transport/server/grpc/security"
 )
 
 type IGrpcHandler interface {
@@ -16,13 +15,15 @@ type GrpcHandler struct {
 }
 
 func NewGrpcHandler(deps GrpcHandlerDeps) IGrpcHandler {
+	// Phase 5: Wire transport-agnostic health checks into standard gRPC health protocol (grpc.health.v1)
+	if deps.Health != nil {
+		deps.Server.SetHealthRegistry(deps.Health)
+	}
 
-	interceptor := grpcsecurity.New(deps.Security, grpcsecurity.Config{
-		Required:     true,
-		EnableBearer: true,
-	})
-
-	deps.Server.Use(interceptor.UnaryServerInterceptor())
+	// Phase 6: Auto-wire security manager with declarative config from env.yaml (server.grpc.security)
+	if deps.Security != nil {
+		deps.Server.SetSecurityManager(deps.Security)
+	}
 
 	return &GrpcHandler{
 		server:      deps.Server,
