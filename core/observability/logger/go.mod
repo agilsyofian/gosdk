@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/observability/logger
+module github.com/agilsyofian/gosdk/core/observability/logger
 
 go 1.26.8
 

@@ -2,8 +2,8 @@ package bootstrap
 
 import (
 	"github.com/agilsyofian/gosdk/core/observability/health"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/cache"
 	"github.com/agilsyofian/gosdk/storage/database"
 	"github.com/agilsyofian/gosdk/storage/postgres"

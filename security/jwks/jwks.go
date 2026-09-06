@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
 	"github.com/agilsyofian/gosdk/resilience/retry"
 	"github.com/agilsyofian/gosdk/transport/client/http"

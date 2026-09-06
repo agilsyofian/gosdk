@@ -46,7 +46,7 @@ Use generics only when they materially improve the API or remove repetitive, typ
 
 ## 11. Logging
 
-Use `observability/logger.Logger` where the module already depends on the SDK logger. Never add ad-hoc `fmt.Println`/`log.Printf` for runtime framework logging.
+Use `core/observability/logger.Logger` where the module already depends on the SDK logger. Never add ad-hoc `fmt.Println`/`log.Printf` for runtime framework logging.
 
 ## 12. Security-sensitive code
 

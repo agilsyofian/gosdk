@@ -101,7 +101,7 @@ The workspace is defined by `go.work`. Current workspace modules include:
 
 - `core/errors`
 - `core/observability/health`
-- `core/observability/logger`
+- `core/core/observability/logger`
 - `core/observability/tracing`
 - `core/resilience`
 - `examples`
@@ -138,7 +138,7 @@ A directory is not automatically a Go module. Use the checked-in `go.mod`/`go.wo
 2. **Keep module boundaries explicit.** Do not add imports that create dependency cycles or bypass the layering rules.
 3. **Use `context.Context` for I/O and cancellation-aware operations.**
 4. **Preserve public APIs.** Additive changes are preferred; removals/renames require an explicit compatibility decision.
-5. **Use the SDK's existing abstractions.** Prefer `errors.AppError`, `observability/logger.Logger`, `storage.Cache`, `storage.Database`, `security` interfaces, and existing resilience policies instead of duplicating them.
+5. **Use the SDK's existing abstractions.** Prefer `errors.AppError`, `core/observability/logger.Logger`, `storage.Cache`, `storage.Database`, `security` interfaces, and existing resilience policies instead of duplicating them.
 6. **Fail safely.** Authentication/authorization and security-sensitive failures must not become permissive fallbacks.
 7. **Do not add secrets, credentials, tokens, production endpoints, or customer data to source/tests/docs.**
 8. **Every behavior change needs appropriate tests.** Security-sensitive changes need negative/fail-closed coverage.

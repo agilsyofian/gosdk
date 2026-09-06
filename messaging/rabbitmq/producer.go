@@ -8,7 +8,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
 
 // amqpPublisher is the subset of *amqp.Channel this package's Producer

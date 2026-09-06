@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/jwks"
 )

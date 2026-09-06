@@ -8,7 +8,7 @@ import (
 
 	kafkago "github.com/segmentio/kafka-go"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
 
 // kafkaWriter is the subset of *kafkago.Writer this package depends on.

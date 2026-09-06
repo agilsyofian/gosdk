@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/transport/server/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

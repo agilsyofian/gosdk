@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
 	"github.com/agilsyofian/gosdk/resilience/retry"
 	"google.golang.org/grpc"

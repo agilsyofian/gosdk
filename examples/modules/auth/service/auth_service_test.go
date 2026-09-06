@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/example/modules/auth/model"
 	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/jwks"
 	"github.com/agilsyofian/gosdk/transport/server/http/metadata"

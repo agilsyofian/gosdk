@@ -2,7 +2,7 @@ module github.com/agilsyofian/gosdk/messaging/rabbitmq
 
 go 1.26.8
 
-replace github.com/agilsyofian/gosdk/observability/logger => ./../../core/observability/logger
+replace github.com/agilsyofian/gosdk/core/observability/logger => ./../../core/observability/logger
 
 replace github.com/agilsyofian/gosdk/core/observability/tracing => ./../../core/observability/tracing
 
@@ -11,7 +11,7 @@ replace github.com/agilsyofian/gosdk/core/observability/health => ./../../core/o
 require (
 	github.com/agilsyofian/gosdk/core/observability/health v0.0.0-00010101000000-000000000000
 	github.com/agilsyofian/gosdk/core/observability/tracing v0.0.0-00010101000000-000000000000
-	github.com/agilsyofian/gosdk/observability/logger v0.0.0-00010101000000-000000000000
+	github.com/agilsyofian/gosdk/core/observability/logger v0.0.0-00010101000000-000000000000
 )
 
 require (

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/observability/health"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/storage/database"
 	_ "github.com/sijms/go-ora/v2" // pure-Go Oracle driver (no Oracle Instant Client needed)
 	"go.opentelemetry.io/otel"

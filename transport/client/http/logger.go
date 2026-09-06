@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"go.opentelemetry.io/otel/trace"
 )
 

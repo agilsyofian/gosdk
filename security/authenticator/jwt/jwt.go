@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/security"
 	jwksManager "github.com/agilsyofian/gosdk/security/jwks"
 )

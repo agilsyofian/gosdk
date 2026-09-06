@@ -2,9 +2,9 @@ package bootstrap
 
 import (
 	"github.com/agilsyofian/gosdk/core/observability/health"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"go.uber.org/fx"
 )
 

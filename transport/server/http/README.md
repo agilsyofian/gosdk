@@ -147,7 +147,7 @@ package main
 import (
     "github.com/agilsyofian/gosdk/core/observability/health"
     "github.com/agilsyofian/gosdk/core/observability/tracing"
-    "github.com/agilsyofian/gosdk/observability/logger"
+    "github.com/agilsyofian/gosdk/core/observability/logger"
     "github.com/agilsyofian/gosdk/transport/server/http"
     "go.uber.org/fx"
 )

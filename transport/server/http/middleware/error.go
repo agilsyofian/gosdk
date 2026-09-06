@@ -7,8 +7,8 @@ import (
 	"time"
 
 	appError "github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/transport/server/http/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"

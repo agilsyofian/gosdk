@@ -31,7 +31,7 @@ Security decisions must fail closed. A missing principal, invalid credential, ex
 
 ## 6. Logging and sensitive data
 
-Never log passwords, raw API keys, bearer tokens, private keys, or session secrets. Reuse `observability/logger` filtering where available.
+Never log passwords, raw API keys, bearer tokens, private keys, or session secrets. Reuse `core/observability/logger` filtering where available.
 
 ## 7. Dependencies
 

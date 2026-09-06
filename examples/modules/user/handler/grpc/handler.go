@@ -3,9 +3,9 @@ package grpc
 import (
 	"context"
 
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/modules/user/service"
 	"github.com/agilsyofian/gosdk/example/proto/user"
-	"github.com/agilsyofian/gosdk/observability/logger"
 )
 
 type UserHandler struct {

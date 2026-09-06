@@ -46,7 +46,7 @@ This file is intentionally aligned with the **current source snapshot**. It is n
 
 ### Observability
 
-- zerolog-backed logger (`observability/logger`);
+- zerolog-backed logger (`core/observability/logger`);
 - OpenTelemetry tracing and context propagation (`observability/tracing`);
 - health-check registry and indicators (`observability/health`).
 

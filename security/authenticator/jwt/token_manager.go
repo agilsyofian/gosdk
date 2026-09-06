@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
 
 // ctxTokenKey is used to pull a pre-issued JWT out of context, when the

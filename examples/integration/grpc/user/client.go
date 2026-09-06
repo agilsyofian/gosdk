@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/interceptor"
 	"github.com/agilsyofian/gosdk/example/proto/user"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/transport/client/grpc"
 )

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
 	publisher2 "github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/example/modules/auth/model"
 	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"

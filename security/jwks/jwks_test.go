@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
 
 func TestJWKSManager_GetKey(t *testing.T) {

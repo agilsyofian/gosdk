@@ -10,7 +10,7 @@ import (
 
 	kafkago "github.com/segmentio/kafka-go"
 
-	"github.com/agilsyofian/gosdk/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 )
 
 // fakeWriter is the mock transport seam for Producer tests (messaging.md

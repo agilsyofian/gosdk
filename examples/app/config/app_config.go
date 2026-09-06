@@ -1,8 +1,8 @@
 package config
 
 import (
+	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
-	"github.com/agilsyofian/gosdk/observability/logger"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
 	"github.com/agilsyofian/gosdk/storage/postgres"

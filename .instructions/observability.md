@@ -2,7 +2,7 @@
 
 ## 1. Logging
 
-The implemented logging abstraction is `observability/logger.Logger`, with a zerolog-backed implementation.
+The implemented logging abstraction is `core/observability/logger.Logger`, with a zerolog-backed implementation.
 
 Use the logger interface rather than depending directly on zerolog in packages that only need logging behavior. Preserve context propagation and the existing `LogPayload` structure.
 
