@@ -12,6 +12,12 @@ The `github.com/agilsyofian/gosdk/transport/server/http` module is an enterprise
   - **Anti-XSS & SQLi in JSON**: Recursive string validation on JSON payloads with smart exemptions for valid AES ciphertexts (Hex / Base64).
   - **Industry-Standard Security Headers**: Automatically injects `HSTS`, `Content-Security-Policy (CSP)`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `Cache-Control: no-store`.
   - **Secure Transport (HMAC Signature & Response Signing)**: Verifies request payload integrity and signs outgoing responses using HMAC-SHA256, HMAC-SHA512, or RSA-SHA256.
+- 🔐 **Declarative Security & Authentication Ergonomics**:
+  - Declarative configuration in `env.yaml` under `server.http.security` (`required`, `enable_bearer`, `enable_basic`, `enable_api_key`, `api_key_header`, `session_cookie`).
+  - Seamless server binding via `server.SetSecurityManager(mgr)`.
+  - Flexible route-group and handler protection: `server.SecurityMiddleware()` and `server.RequirePermission("...")`.
+  - Package-level helpers: `http.Security(mgr, ...)` and `http.RequirePermission(mgr, ...)`.
+  - Standardized error mapping: rejects unauthenticated requests with `401 Unauthorized` and forbidden access with `403 Forbidden` mapped into SDK standard error envelope.
 - 🔁 **Distributed Idempotency**:
   - In-flight concurrency locking via singleflight (prevents double-clicks and retry storms from executing handlers more than once).
   - Automatic response caching & replay (`X-Cache-Lookup: HIT`, `X-Idempotent-Replayed: true`).
@@ -132,7 +138,16 @@ server:
       response_timestamp_header: "X-Timestamp"
       secret: "my-secret-key-12345"
 
-    # 7. Observability & Actuator
+    # 7. Declarative Security & Authentication
+    security:
+      required: true
+      enable_bearer: true
+      enable_basic: false
+      enable_api_key: true
+      api_key_header: "X-API-Key"
+      session_cookie: "SESSION_ID"
+
+    # 8. Observability & Actuator
     enable_swagger: true
     show_error_detail: true
     logger_exclude_routes:
@@ -265,7 +280,63 @@ r.POST("/disbursement",
 
 ---
 
-### 5. Actuator & Health Probes (Kubernetes)
+### 5. Using Declarative Security & RBAC Middleware
+
+Bind your `security.SecurityManager` to the server and apply authentication/authorization middleware cleanly:
+
+```go
+func SetupRoutes(server *http.Server, securityMgr security.SecurityManager) {
+    // 1. Bind SecurityManager to HTTP Server (defaults to server.http.security in env.yaml)
+    server.SetSecurityManager(securityMgr)
+
+    v1 := server.Group("/v1")
+
+    // Public routes: No authentication middleware
+    auth := v1.Group("/auth")
+    {
+        auth.POST("/login", authHandler.Login)
+        auth.POST("/register", authHandler.Register)
+    }
+
+    // Protected routes: Authenticated via server.SecurityMiddleware()
+    user := v1.Group("/user", server.SecurityMiddleware())
+    {
+        user.GET("/profile", userHandler.GetProfile)
+
+        // Granular permission check via server.RequirePermission()
+        user.DELETE("/profile", server.RequirePermission("user:delete"), userHandler.DeleteProfile)
+    }
+}
+```
+
+**Accessing Authenticated Identity in Handlers**:
+```go
+func (h *UserHandler) GetProfile(c *gin.Context) {
+    // Retrieve authenticated SecurityContext from request context
+    secCtx, ok := security.FromContext(c.Request.Context())
+    if ok && secCtx.Principal != nil {
+        userID := secCtx.Principal.Subject
+        // Business logic with userID
+    }
+}
+```
+
+**Package-Level Helpers**:
+You can also use package-level middleware functions directly on any Gin engine or group:
+```go
+// Authentication middleware with custom override config
+r.Use(http.Security(securityMgr, http.SecurityConfig{
+    Required:     true,
+    EnableBearer: true,
+}))
+
+// Authorization middleware
+r.DELETE("/admin/users/:id", http.RequirePermission(securityMgr, "admin:delete"), adminHandler.Delete)
+```
+
+---
+
+### 6. Actuator & Health Probes (Kubernetes)
 
 The HTTP server automatically registers standard Actuator endpoints:
 
@@ -312,7 +383,7 @@ Incoming Request
 8. Logger Middleware (Structured logging with dynamic route exclusions)
        │
        ▼
-9. Route Handlers (Endpoint Controller / Idempotency / Signature / Auth JWT)
+9. Route Handlers & Route-Level Security (SecurityMiddleware / RequirePermission / Idempotency / Signature)
 ```
 
 ---
