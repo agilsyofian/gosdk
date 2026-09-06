@@ -1,6 +1,10 @@
 package http
 
-import "time"
+import (
+	"time"
+
+	coremetadata "github.com/agilsyofian/gosdk/core/metadata"
+)
 
 type Config struct {
 	BasePath                   string                `mapstructure:"base_path"`
@@ -17,6 +21,7 @@ type Config struct {
 	DisableBlockSpecialChars   bool                  `mapstructure:"disable_block_special_chars"`
 	AllowedSpecialCharsRegex   string                `mapstructure:"allowed_special_chars_regex"`
 	SecurityHeaders            SecurityHeadersConfig `mapstructure:"security_headers"`
+	Metadata                   coremetadata.Config   `mapstructure:"metadata"`
 	Idempotency                IdempotencyConfig     `mapstructure:"idempotency"`
 	Signature                  SignatureConfig       `mapstructure:"signature"`
 	EnableSwagger              bool                  `mapstructure:"enable_swagger"`
@@ -24,6 +29,9 @@ type Config struct {
 	LoggerExcludeRoutes        []string              `mapstructure:"logger_exclude_routes"`
 	Actuator                   ActuatorConfig        `mapstructure:"actuator"`
 }
+
+// MetadataConfig defines declarative header mapping and capture rules.
+type MetadataConfig = coremetadata.Config
 
 type SignatureConfig struct {
 	Enabled                 bool          `mapstructure:"enabled"`

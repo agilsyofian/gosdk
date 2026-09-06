@@ -1,7 +1,13 @@
 package grpc
 
+import coremetadata "github.com/agilsyofian/gosdk/core/metadata"
+
 type Config struct {
-	Addr              string `mapstructure:"addr"`
-	ReflectionEnabled bool   `mapstructure:"reflection_enabled"`
-	ShowErrorDetail   bool   `mapstructure:"show_error_detail"`
+	Addr              string              `mapstructure:"addr"`
+	ReflectionEnabled bool                `mapstructure:"reflection_enabled"`
+	ShowErrorDetail   bool                `mapstructure:"show_error_detail"`
+	Metadata          coremetadata.Config `mapstructure:"metadata"`
 }
+
+// MetadataConfig defines declarative header mapping and capture rules for gRPC.
+type MetadataConfig = coremetadata.Config

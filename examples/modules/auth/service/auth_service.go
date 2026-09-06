@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
@@ -17,7 +18,6 @@ import (
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
 	"github.com/agilsyofian/gosdk/storage/cache"
-	"github.com/agilsyofian/gosdk/transport/server/http/metadata"
 	"github.com/agilsyofian/gosdk/utils/crypto"
 	"github.com/google/uuid"
 )
@@ -85,7 +85,7 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 	if !ok {
 		return model.Token{}, errors.BadRequest(errors.String("metadata not found"), s.appConfig.AppName, codeMetadataMissing, message)
 	}
-	cmd.DeviceIdentifier = md.DeviceID
+	cmd.DeviceIdentifier = md.Get("x-device-id")
 
 	// Decrypt Username and Password fields that were encrypted by the client
 	// using the field-level encryption protocol (STEERFILE §14). The encryption
@@ -141,22 +141,19 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 
 // decryptLoginFields opens a FieldDecryptor session using the encryption
 // headers present in request metadata, then decrypts cmd.Username and
-// cmd.Password in-place. The decryption headers are expected to arrive as
-// standard HTTP request headers and are mapped to FieldHeaders by this helper.
+// cmd.Password in-place.
 //
 // The caller is responsible for running ValidateAuthCommand AFTER this returns
 // so that the validator always sees the plaintext values.
-func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, md metadata.Request) (model.Login, error) {
+func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, md *metadata.Metadata) (model.Login, error) {
 	const message = "invalid login credentials"
 
-	// Build FieldHeaders from the request metadata headers already extracted
-	// by the HTTP middleware (transport/server/http/middleware/metadata.go).
 	h := crypto.FieldHeaders{
-		Version:      md.EncryptionVersion,
-		KeyID:        md.EncryptionKid,
-		EncryptedKey: md.EncryptionKey,
-		Nonce:        md.Nonce,
-		Timestamp:    md.Timestamp,
+		Version:      md.Get("x-encryption-version"),
+		KeyID:        md.Get("x-encryption-kid"),
+		EncryptedKey: md.Get("x-encryption-key"),
+		Nonce:        md.Get("x-nonce"),
+		Timestamp:    md.Get("x-timestamp"),
 	}
 
 	if s.fieldDecryptor == nil {

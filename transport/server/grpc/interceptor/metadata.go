@@ -2,37 +2,53 @@ package interceptor
 
 import (
 	"context"
+	"strings"
 
-	grpcmetadata "github.com/agilsyofian/gosdk/transport/server/grpc/metadata"
+	"github.com/agilsyofian/gosdk/core/metadata"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	grpcMD "google.golang.org/grpc/metadata"
 )
 
-// Metadata extracts the SDK's standard incoming request metadata from the
-// gRPC MD and stores it in the context, where handlers and services can
-// retrieve it via metadata.FromContext(ctx).
-//
-// It mirrors the behaviour of transport/server/http/middleware.Metadata,
-// providing a consistent API across both transports.
-func Metadata() grpc.UnaryServerInterceptor {
+type mdCarrier grpcMD.MD
+
+func (m mdCarrier) Get(key string) string {
+	vals := grpcMD.MD(m).Get(strings.ToLower(key))
+	if len(vals) == 0 {
+		return ""
+	}
+	return vals[0]
+}
+
+func (m mdCarrier) Keys() []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// Metadata extracts the standard incoming request metadata from gRPC MD
+// and stores it in context as *core/metadata.Metadata.
+func Metadata(cfgs ...metadata.Config) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		md, _ := metadata.FromIncomingContext(ctx)
-		ctx = grpcmetadata.WithContext(ctx, grpcmetadata.FromMD(md))
+		incomingMD, _ := grpcMD.FromIncomingContext(ctx)
+		m := metadata.Extract(mdCarrier(incomingMD), cfgs...)
+		ctx = metadata.WithContext(ctx, m)
 		return handler(ctx, req)
 	}
 }
 
 // MetadataStream is the stream variant of Metadata.
-func MetadataStream() grpc.StreamServerInterceptor {
+func MetadataStream(cfgs ...metadata.Config) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
-		md, _ := metadata.FromIncomingContext(ctx)
-		ctx = grpcmetadata.WithContext(ctx, grpcmetadata.FromMD(md))
+		incomingMD, _ := grpcMD.FromIncomingContext(ctx)
+		m := metadata.Extract(mdCarrier(incomingMD), cfgs...)
+		ctx = metadata.WithContext(ctx, m)
 		return handler(srv, &wrappedStream{ss, ctx})
 	}
 }
 
-// wrappedStream substitutes the context on an existing ServerStream.
 type wrappedStream struct {
 	grpc.ServerStream
 	ctx context.Context

@@ -76,7 +76,7 @@ func (s *Server) rebuildServer() {
 	// Re-add default interceptors to ensure they are always present
 	allInterceptors := []grpc.UnaryServerInterceptor{
 		interceptor.Recovery(s.appName),
-		interceptor.Metadata(),
+		interceptor.Metadata(s.cfg.Metadata),
 		interceptor.Tracer(s.appName),
 		interceptor.Logger(s.logger, s.appName),
 		interceptor.Error(s.logger, s.appName, s.cfg.ShowErrorDetail),

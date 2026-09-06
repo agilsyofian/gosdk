@@ -98,14 +98,27 @@ server:
       disable_no_cache: false
       sanitize_response: true
 
-    # 4. Idempotency Configuration
+    # 4. Declarative Request Metadata & Dynamic Baggage
+    metadata:
+      trace_id_header: "X-Trace-Id"         # Customizable for Company A/B (e.g. Traceparent)
+      span_id_header: "X-Span-Id"
+      request_id_header: "X-Request-Id"
+      session_id_header: "X-Session-Id"
+      user_id_header: "X-User-Id"
+      capture_headers:
+        - "X-Device-Id"
+        - "X-App-Version"
+        - "X-Tenant-Id"
+        - "X-Channel-Id"
+
+    # 5. Idempotency Configuration
     idempotency:
       enabled: true
       ttl: "1m"
       lock_timeout: "10s"
       header_name: "X-Idempotency-Key"
 
-    # 5. Secure Transport (HMAC Signature & Response Signing)
+    # 6. Secure Transport (HMAC Signature & Response Signing)
     signature:
       enabled: true
       algorithm: "HMAC-SHA256" # HMAC-SHA256, HMAC-SHA512, RSA-SHA256
@@ -119,7 +132,7 @@ server:
       response_timestamp_header: "X-Timestamp"
       secret: "my-secret-key-12345"
 
-    # 6. Observability & Actuator
+    # 7. Observability & Actuator
     enable_swagger: true
     show_error_detail: true
     logger_exclude_routes:

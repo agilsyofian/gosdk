@@ -17,11 +17,10 @@ import (
 
 // MetadataTraceID and MetadataSessionID are the gRPC metadata keys
 // injected by the Tracer interceptor. The canonical definitions live in
-// transport/server/grpc/metadata; the aliases here avoid an import cycle
-// between the client and server packages while keeping backwards compatibility.
+// core/metadata.
 const (
-	MetadataTraceID   = "x-trace-id"   // same as metadata.TraceID
-	MetadataSessionID = "x-session-id" // same as metadata.SessionID
+	MetadataTraceID   = "x-trace-id"
+	MetadataSessionID = "x-session-id"
 )
 
 // metadataCarrier is a custom carrier for gRPC metadata that ensures keys are lowercase.

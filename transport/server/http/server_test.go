@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	coremetadata "github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	httpServer "github.com/agilsyofian/gosdk/transport/server/http"
@@ -528,4 +529,36 @@ func TestServer_MiddlewarePipelineOrder_RecoveryAndTracing(t *testing.T) {
 	// Step 7 (Security Headers) should also be present
 	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
 	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+}
+
+func TestServer_MetadataExtraction(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+		Metadata: coremetadata.Config{
+			CaptureHeaders: []string{"X-Tenant-Id"},
+		},
+	}
+
+	s := httpServer.NewServer("meta-test-app", lc, l, cfg, nil, nil)
+
+	var extractedMeta *coremetadata.Metadata
+	s.GET("/test-meta", func(c *gin.Context) {
+		extractedMeta, _ = coremetadata.FromContext(c.Request.Context())
+		c.String(http.StatusOK, "ok")
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test-meta", nil)
+	req.Header.Set("X-Trace-Id", "trace-777")
+	req.Header.Set("X-Tenant-Id", "tenant-pegadaian")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotNil(t, extractedMeta)
+	assert.Equal(t, "trace-777", extractedMeta.TraceID)
+	assert.Equal(t, "tenant-pegadaian", extractedMeta.Get("x-tenant-id"))
 }

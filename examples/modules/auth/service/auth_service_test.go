@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/errors"
+	"github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/messaging/publisher"
@@ -17,7 +18,6 @@ import (
 	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/jwks"
-	"github.com/agilsyofian/gosdk/transport/server/http/metadata"
 	crypto "github.com/agilsyofian/gosdk/utils/crypto"
 )
 
@@ -116,14 +116,13 @@ func TestAuthService_LoginPassword_WithEncryptedFields(t *testing.T) {
 	}
 
 	// Prepare metadata from encrypted request headers
-	md := metadata.Request{
-		DeviceID:          "device-xyz-123",
-		EncryptionVersion: encReq.Headers.Version,
-		EncryptionKid:     encReq.Headers.KeyID,
-		EncryptionKey:     encReq.Headers.EncryptedKey,
-		Nonce:             encReq.Headers.Nonce,
-		Timestamp:         encReq.Headers.Timestamp,
-	}
+	md := metadata.New()
+	md.Set("x-device-id", "device-xyz-123")
+	md.Set("x-encryption-version", encReq.Headers.Version)
+	md.Set("x-encryption-kid", encReq.Headers.KeyID)
+	md.Set("x-encryption-key", encReq.Headers.EncryptedKey)
+	md.Set("x-nonce", encReq.Headers.Nonce)
+	md.Set("x-timestamp", encReq.Headers.Timestamp)
 	ctx = metadata.WithContext(ctx, md)
 
 	userMock := &mockUserIntegration{
@@ -169,14 +168,13 @@ func TestAuthService_LoginPassword_DecryptionFailsOnBadHeader(t *testing.T) {
 	_, decryptor, _ := setupTestKeys(t)
 
 	ctx := context.Background()
-	md := metadata.Request{
-		DeviceID:          "device-123",
-		EncryptionVersion: "1",
-		EncryptionKid:     "unknown_kid",
-		EncryptionKey:     "invalid_key",
-		Nonce:             "invalid_nonce",
-		Timestamp:         "12345",
-	}
+	md := metadata.New()
+	md.Set("x-device-id", "device-123")
+	md.Set("x-encryption-version", "1")
+	md.Set("x-encryption-kid", "unknown_kid")
+	md.Set("x-encryption-key", "invalid_key")
+	md.Set("x-nonce", "invalid_nonce")
+	md.Set("x-timestamp", "12345")
 	ctx = metadata.WithContext(ctx, md)
 
 	svc := &AuthService{

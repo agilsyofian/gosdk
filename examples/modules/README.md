@@ -56,7 +56,7 @@ almost everything the SDK provides:
    (`binding:"required"` on username/password), then calls the service.
 2. **`service/auth_service.go`** (`LoginPassword`):
    - Reads the device identifier from request metadata
-     (`transport/server/http/metadata`) — this is why the quickstart
+     (`core/metadata`) — this is why the quickstart
      curl in the parent README sends an `X-Device-Id` header.
    - Calls `ValidateAuthCommand` — a second, service-level check,
      independent of the HTTP binding tags (see that function's doc

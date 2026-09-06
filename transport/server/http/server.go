@@ -82,7 +82,7 @@ func NewServer(
 	)
 
 	// 4. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
-	engine.Use(middleware.Metadata())
+	engine.Use(middleware.Metadata(cfg.Metadata))
 
 	// 5. Block Method Override (Block X-HTTP-Method-Override & query _method)
 	if !cfg.DisableBlockMethodOverride {
