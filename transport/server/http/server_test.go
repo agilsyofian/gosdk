@@ -487,3 +487,45 @@ func TestServer_Idempotency(t *testing.T) {
 	assert.Equal(t, "true", w2.Header().Get("X-Idempotent-Replayed"))
 	assert.Equal(t, w1.Body.String(), w2.Body.String())
 }
+
+func TestServer_MiddlewarePipelineOrder_RecoveryAndTracing(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr:            ":0",
+		Mode:            "test",
+		ShowErrorDetail: true,
+	}
+
+	s := httpServer.NewServer("order-test-app", lc, l, cfg, nil, nil)
+
+	s.GET("/panic-route", func(c *gin.Context) {
+		panic("unexpected crash in handler")
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/panic-route", nil)
+	s.ServeHTTP(w, req)
+
+	// Step 2 (Recovery + Error) should catch the panic and return 500 JSON envelope
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var resp struct {
+		Source  string `json:"source"`
+		Message string `json:"message"`
+		Error   string `json:"error"`
+	}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "order-test-app", resp.Source)
+	assert.Contains(t, resp.Error, "unexpected crash in handler")
+
+	// Step 3 (Tracer) should have injected X-Trace-Id and X-Session-Id
+	assert.NotEmpty(t, w.Header().Get("x-trace-id"))
+	assert.NotEmpty(t, w.Header().Get("x-session-id"))
+
+	// Step 7 (Security Headers) should also be present
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+}

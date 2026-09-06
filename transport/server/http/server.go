@@ -56,6 +56,8 @@ func NewServer(
 	}
 
 	engine := gin.New()
+
+	// 1. CORS Middleware (Handle OPTIONS preflight & inject Vary: Origin)
 	if cfg.EnableCors {
 		engine.Use(middleware.CORS(middleware.CorsConfig{
 			AllowOrigins:     cfg.Cors.AllowOrigins,
@@ -66,31 +68,47 @@ func NewServer(
 			MaxAge:           cfg.Cors.MaxAge,
 		}))
 	}
+
+	// 2. Recovery Middleware (Catch panics & format standardized error response)
 	engine.Use(
-		otelgin.Middleware(appName),
-		middleware.Metadata(),
-		middleware.Tracer(appName),
-		middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...),
-		middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
-			Disabled:              cfg.SecurityHeaders.Disabled,
-			HSTSMaxAge:            cfg.SecurityHeaders.HSTSMaxAge,
-			DisableHSTSSubdomains: cfg.SecurityHeaders.DisableHSTSSubdomains,
-			DisableHSTSPreload:    cfg.SecurityHeaders.DisableHSTSPreload,
-			ContentSecurityPolicy: cfg.SecurityHeaders.ContentSecurityPolicy,
-			FrameOptions:          cfg.SecurityHeaders.FrameOptions,
-			ReferrerPolicy:        cfg.SecurityHeaders.ReferrerPolicy,
-			DisableNoCache:        cfg.SecurityHeaders.DisableNoCache,
-			SanitizeResponse:      cfg.SecurityHeaders.SanitizeResponse,
-		}),
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(appName),
 	)
+
+	// 3. Tracer Middleware (Extract OpenTelemetry trace context)
+	engine.Use(
+		otelgin.Middleware(appName),
+		middleware.Tracer(appName),
+	)
+
+	// 4. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
+	engine.Use(middleware.Metadata())
+
+	// 5. Block Method Override (Block X-HTTP-Method-Override & query _method)
 	if !cfg.DisableBlockMethodOverride {
 		engine.Use(middleware.BlockMethodOverride(appName))
 	}
+
+	// 6. Block Special Characters (Scan for XSS / SQLi in JSON string payloads)
 	if !cfg.DisableBlockSpecialChars {
 		engine.Use(middleware.BlockJSONSpecialChars(appName, cfg.AllowedSpecialCharsRegex))
 	}
+
+	// 7. Security Headers (Inject HSTS, CSP, X-Frame-Options, Nosniff, Cache-Control)
+	engine.Use(middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
+		Disabled:              cfg.SecurityHeaders.Disabled,
+		HSTSMaxAge:            cfg.SecurityHeaders.HSTSMaxAge,
+		DisableHSTSSubdomains: cfg.SecurityHeaders.DisableHSTSSubdomains,
+		DisableHSTSPreload:    cfg.SecurityHeaders.DisableHSTSPreload,
+		ContentSecurityPolicy: cfg.SecurityHeaders.ContentSecurityPolicy,
+		FrameOptions:          cfg.SecurityHeaders.FrameOptions,
+		ReferrerPolicy:        cfg.SecurityHeaders.ReferrerPolicy,
+		DisableNoCache:        cfg.SecurityHeaders.DisableNoCache,
+		SanitizeResponse:      cfg.SecurityHeaders.SanitizeResponse,
+	}))
+
+	// 8. Logger Middleware (Structured logging with dynamic route exclusions)
+	engine.Use(middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...))
 
 	basePath := normalizeBasePath(cfg.BasePath)
 	var baseRouter gin.IRouter = engine
