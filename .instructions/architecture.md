@@ -14,13 +14,15 @@ transport/
                                           └── core/*
 
 security/
-├── session/
-    ├── memory ────────────────────────────── security
-├── session/
-    ├──redis ──────────────────────────────── security + storage/cache
-├── authenticator/* ───────────────────────── security
-├── signature ─────────────────────────────── (zero external deps)
-├── * ─────────────────────────────────────── core/observability/*
+├── (root) ────────────────────────────────── core interfaces, manager, registry
+├── authorization ─────────────────────────── PermissionAuthorizer (subpackage)
+├── authenticator/apikey ──────────────────── API Key authenticator (subpackage)
+├── authenticator/basicauth ───────────────── Basic Auth authenticator (subpackage)
+├── session/memory ────────────────────────── in-memory session (subpackage)
+├── authenticator/jwt ─────────────────────── dedicated module (JWT issuance & verification)
+├── jwks ──────────────────────────────────── dedicated module (remote JWKS fetcher & cache)
+├── session/redis ─────────────────────────── dedicated module (security + storage/cache)
+└── signature ─────────────────────────────── dedicated module (zero external deps)
 
 storage/
 ├── cache                (interface)
@@ -98,19 +100,19 @@ Unified observability module bundling:
 
 ### `security`
 
-Core credential, authentication, principal, session, security-context, registry, manager, and authorization interfaces/types.
+Core credential, authentication, principal, session, security-context, registry, manager, and authorization interfaces/types. Houses built-in zero-dependency authenticators (`apikey`, `basicauth`), authorizer (`authorization`), and test session store (`session/memory`).
 
-### `security/authenticator/*`
+### `security/jwks`
 
-Concrete authentication mechanisms: API key, Basic Auth, and JWT/JWKS.
+Remote JWKS fetcher and caching client. Implements singleflight deduplication, TTL expiration, and resilience (retry + circuit breaker). Used by JWT verifiers and field-level crypto adapters.
 
-### `security/session/*`
+### `security/authenticator/jwt`
 
-Concrete session managers: in-memory and Redis-backed.
+Bearer JWT token authentication, verification, and issuance.
 
-### `security/authorization`
+### `security/session/redis`
 
-Role/permission authorization implementation.
+Redis-backed distributed session manager (requires `storage/cache`).
 
 ### `security/signature`
 

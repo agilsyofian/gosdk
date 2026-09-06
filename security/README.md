@@ -9,43 +9,28 @@ usable from both Gin and gRPC through thin transport adapters.
 > server-side **Session** is the authoritative user context.
 > **SecurityContext** is the contract application code consumes.
 
-## Multi-module layout
+## Architecture & Module Layout
 
-Every authenticator, every session provider, and every transport
-adapter is its **own Go module** with its own `go.mod`. The core
-module has zero dependencies and never imports a provider; every
-provider module depends only on the core (never on each other).
+Security is structured around a **zero-dependency core module** plus **dedicated provider modules** for implementations requiring external libraries (Redis, HTTP client, or distinct cryptographic lifecycles):
 
 ```text
-security-sdk                              (core, zero deps)
-├── security/                             types, interfaces, Manager, Registry
-└── security/authorization/               PermissionAuthorizer
+github.com/agilsyofian/gosdk/security             (Core module, zero external deps)
+├── (root)                                         types, interfaces, Manager, Registry
+├── authorization/                                 PermissionAuthorizer
+├── authenticator/apikey/                          built-in API Key authenticator
+├── authenticator/basicauth/                       built-in HTTP Basic authenticator
+└── session/memory/                                in-memory session manager (test/dev)
 
-security-sdk/authenticator/jwt            (own go.mod)
-security-sdk/authenticator/apikey         (own go.mod)
-security-sdk/authenticator/basicauth      (own go.mod)
-                                           ← add authenticator/<name> here later
-                                             (e.g. digitalsignature, mtls, oauth)
-
-security-sdk/session/redis                (own go.mod)
-security-sdk/session/memory               (own go.mod, test/dev only)
-                                           ← add session/<provider> here later
-                                             (e.g. dragonfly, memcached)
-
-security-sdk/transport/gin                (own go.mod, needs gin)
-security-sdk/transport/grpc               (own go.mod, needs grpc)
-
-security-sdk/examples/basic               (own go.mod; runnable, core-only)
-security-sdk/examples/gin                 (own go.mod; reference, needs gin)
-security-sdk/examples/grpc                (own go.mod; reference, needs grpc)
+github.com/agilsyofian/gosdk/security/jwks        (Remote JWKS fetcher, HTTP client & cache)
+github.com/agilsyofian/gosdk/security/authenticator/jwt (JWT verification & token issuance)
+github.com/agilsyofian/gosdk/security/session/redis (Redis distributed session store)
+github.com/agilsyofian/gosdk/security/signature   (HMAC/RSA request & response signing)
 ```
 
-**Dependency direction is enforced by construction:** the core module
-(`security-sdk`) cannot import any provider module (there'd be nowhere
-for the provider to "come back" to), and provider modules only ever
-import the core -- never each other. `go build`/`go vet` will fail the
-moment that rule is broken, since violating it would require a cyclic
-`replace`.
+**Dependency direction is enforced by construction:**
+- The core module (`security`) has zero external dependencies and never imports provider or transport modules.
+- Built-in zero-dependency authenticators (`apikey`, `basicauth`) and authorizers (`authorization`) live directly as subpackages in the core module.
+- Heavy I/O providers (`jwks`, `session/redis`) live in dedicated modules so consumers only pull what they actually use.
 
 ### Why per-module, not per-package
 

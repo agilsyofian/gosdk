@@ -107,10 +107,8 @@ The workspace is defined by `go.work`. Current workspace modules include:
 - `messaging/kafka`
 - `messaging/rabbitmq`
 - `security`
-- `security/authenticator/apikey`
-- `security/authenticator/basicauth`
 - `security/authenticator/jwt`
-- `security/session/memory`
+- `security/jwks`
 - `security/session/redis`
 - `security/signature`
 - `storage/cache`

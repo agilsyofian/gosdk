@@ -3,10 +3,8 @@ package jwks
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/agilsyofian/gosdk/resilience/circuitbreaker"
 	"github.com/agilsyofian/gosdk/resilience/retry"
 	"github.com/agilsyofian/gosdk/transport/client/http"
+	"github.com/agilsyofian/gosdk/utils/crypto"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -23,19 +22,11 @@ type Manager interface {
 	Refresh(ctx context.Context) error
 }
 
-type Key struct {
-	Use string   `json:"use" mapstructure:"use" validate:"required"`
-	Kty string   `json:"kty" mapstructure:"kty" validate:"required"`
-	Alg string   `json:"alg" mapstructure:"alg" validate:"required"`
-	Kid string   `json:"kid" mapstructure:"kid" validate:"required"`
-	N   string   `json:"n" mapstructure:"n" validate:"required"`
-	E   string   `json:"e" mapstructure:"e" validate:"required"`
-	X5c []string `json:"x5c" mapstructure:"x5c"`
-}
+// Key aliases crypto.Key to maintain a single source of truth for JWK definitions.
+type Key = crypto.Key
 
-type Jwks struct {
-	Keys []Key `json:"keys" mapstructure:"keys" validate:"required"`
-}
+// Jwks aliases crypto.Jwks to maintain a single source of truth for JWK sets.
+type Jwks = crypto.Jwks
 
 type defaultJWKSManager struct {
 	cfg        Config
@@ -145,27 +136,5 @@ func (m *defaultJWKSManager) doRefresh(ctx context.Context) error {
 }
 
 func decodeJWKToRSAPublicKey(k Key) (*rsa.PublicKey, error) {
-	if k.N == "" || k.E == "" {
-		return nil, errors.New("jwt: missing N or E in JWK")
-	}
-
-	nBytes, err := base64.RawURLEncoding.DecodeString(k.N)
-	if err != nil {
-		return nil, fmt.Errorf("jwt: failed to decode JWK N: %w", err)
-	}
-
-	eBytes, err := base64.RawURLEncoding.DecodeString(k.E)
-	if err != nil {
-		return nil, fmt.Errorf("jwt: failed to decode JWK E: %w", err)
-	}
-
-	var e int
-	for _, b := range eBytes {
-		e = (e << 8) | int(b)
-	}
-
-	return &rsa.PublicKey{
-		N: new(big.Int).SetBytes(nBytes),
-		E: e,
-	}, nil
+	return crypto.JWKToPublicKey(k)
 }

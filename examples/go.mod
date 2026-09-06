@@ -11,6 +11,7 @@ replace (
 	github.com/agilsyofian/gosdk/resilience => ./../core/resilience
 	github.com/agilsyofian/gosdk/security => ./../security
 	github.com/agilsyofian/gosdk/security/authenticator/jwt => ./../security/authenticator/jwt
+	github.com/agilsyofian/gosdk/security/jwks => ./../security/jwks
 	github.com/agilsyofian/gosdk/security/session/redis => ./../security/session/redis
 	github.com/agilsyofian/gosdk/storage/cache => ./../storage/cache
 	github.com/agilsyofian/gosdk/storage/database => ./../storage/database
@@ -31,6 +32,7 @@ require (
 	github.com/agilsyofian/gosdk/resilience v0.0.1 // indirect
 	github.com/agilsyofian/gosdk/security v0.0.1
 	github.com/agilsyofian/gosdk/security/authenticator/jwt v0.0.1
+	github.com/agilsyofian/gosdk/security/jwks v0.0.1
 	github.com/agilsyofian/gosdk/security/session/redis v0.0.1
 	github.com/agilsyofian/gosdk/storage/cache v0.0.1
 	github.com/agilsyofian/gosdk/storage/database v0.0.1

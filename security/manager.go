@@ -6,46 +6,69 @@ import (
 	"fmt"
 )
 
-// SecurityManager is the single orchestrator transport adapters and
-// login/logout handlers talk to. It ties together Authenticator
-// dispatch, session resolution, and authorization behind one
-// transport-independent API.
-//
-// The same SecurityManager instance is meant to be shared by every
-// transport adapter (Gin, gRPC, ...) so authentication/authorization
-// logic is never duplicated per transport.
+// ============================================================================
+// Registry
+// ============================================================================
+
+// Registry dispatches a Credential to the Authenticator registered for its CredentialType.
+// It is itself an Authenticator, allowing SecurityManager to hold a single Registry.
+type Registry struct {
+	authenticators map[CredentialType]Authenticator
+}
+
+// NewRegistry constructs an empty Registry.
+func NewRegistry() *Registry {
+	return &Registry{
+		authenticators: make(map[CredentialType]Authenticator),
+	}
+}
+
+// Register adds an Authenticator to the registry, keyed by its declared Type().
+func (r *Registry) Register(a Authenticator) {
+	r.authenticators[a.Type()] = a
+}
+
+// Get returns the authenticator registered for the given credential type, if any.
+func (r *Registry) Get(t CredentialType) (Authenticator, bool) {
+	a, ok := r.authenticators[t]
+	return a, ok
+}
+
+// Authenticate implements Authenticator by dispatching to the registered authenticator matching credential.Type.
+func (r *Registry) Authenticate(ctx context.Context, credential Credential) (*AuthenticationResult, error) {
+	a, ok := r.authenticators[credential.Type]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCredential, credential.Type)
+	}
+	return a.Authenticate(ctx, credential)
+}
+
+// Type is unset for a Registry since it dispatches across multiple types.
+func (r *Registry) Type() CredentialType {
+	return ""
+}
+
+// ============================================================================
+// SecurityManager
+// ============================================================================
+
+// SecurityManager is the single orchestrator transport adapters and login/logout handlers talk to.
 type SecurityManager interface {
-	// Authenticate validates a Credential and, if the result carries a
-	// SessionID, resolves the corresponding Session from the
-	// SessionManager. Returns a populated SecurityContext on success.
+	// Authenticate validates a Credential and resolves the session if present.
 	Authenticate(ctx context.Context, credential Credential) (*SecurityContext, error)
 
-	// AuthenticateSession resolves a session directly by ID, e.g. from
-	// a session cookie, without going through an Authenticator.
+	// AuthenticateSession resolves a session directly by ID.
 	AuthenticateSession(ctx context.Context, sessionID string) (*SecurityContext, error)
 
-	// Authorize checks whether the SecurityContext already present in
-	// ctx (see FromContext) is permitted to perform permission.
+	// Authorize checks whether the SecurityContext in ctx is permitted to perform permission.
 	Authorize(ctx context.Context, permission string) error
 }
 
 // ManagerConfig configures a Manager.
 type ManagerConfig struct {
-	// Authenticator dispatches credentials to the right underlying
-	// Authenticator implementation. In practice this is typically an
-	// *authenticator.Registry, but any core.Authenticator works.
-	Authenticator Authenticator
-
-	// Sessions resolves session IDs to Sessions. Required whenever any
-	// registered Authenticator can return a SessionID (i.e. for the
-	// recommended stateful flow).
-	Sessions SessionManager
-
-	// Authorizer performs permission checks. If nil, check AuthorizerProvider.
-	Authorizer Authorizer
-
-	// AuthorizerProvider performs permission checks with a custom provider. If nil, Authorize always
-	//	// returns ErrForbidden for any non-empty permission (fail closed).
+	Authenticator      Authenticator
+	Sessions           SessionManager
+	Authorizer         Authorizer
 	AuthorizerProvider func(ctx context.Context, securityContext *SecurityContext, permission string) error
 }
 
@@ -73,12 +96,6 @@ func NewManager(cfg ManagerConfig) (SecurityManager, error) {
 var _ SecurityManager = (*Manager)(nil)
 
 // Authenticate implements SecurityManager.
-//
-// Flow:
-//
-//	Credential -> Authenticator.Authenticate() -> AuthenticationResult
-//	  - SessionID present -> SessionManager.Get() -> Session -> SecurityContext
-//	  - no SessionID       -> Principal -> SecurityContext
 func (m *Manager) Authenticate(ctx context.Context, credential Credential) (*SecurityContext, error) {
 	result, err := m.authenticator.Authenticate(ctx, credential)
 	if err != nil {
@@ -115,9 +132,6 @@ func (m *Manager) resolveSession(ctx context.Context, authType CredentialType, s
 
 	sess, err := m.sessions.Get(ctx, sessionID)
 	if err != nil {
-		// Covers both "JWT valid but session missing" and "session
-		// expired": either way the caller is unauthenticated. This is
-		// what provides server-side revocation on logout.
 		if errors.Is(err, ErrSessionNotFound) || errors.Is(err, ErrSessionExpired) {
 			return nil, ErrUnauthenticated
 		}
@@ -132,14 +146,9 @@ func (m *Manager) resolveSession(ctx context.Context, authType CredentialType, s
 	}, nil
 }
 
-// Authorize implements SecurityManager. It reads the SecurityContext
-// from ctx (it must have been placed there by a transport adapter via
-// WithContext) and delegates to the configured Authorizer.
+// Authorize implements SecurityManager.
 func (m *Manager) Authorize(ctx context.Context, permission string) error {
-
 	if m.authorizer == nil && m.authorizerProvider == nil {
-		// Fail closed: no authorizer configured means nothing is
-		// authorized.
 		return ErrForbidden
 	}
 
@@ -153,5 +162,4 @@ func (m *Manager) Authorize(ctx context.Context, permission string) error {
 	}
 
 	return m.authorizerProvider(ctx, securityContext, permission)
-
 }
