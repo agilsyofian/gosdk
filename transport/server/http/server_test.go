@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -431,4 +432,58 @@ func TestServer_SecurityHeaders(t *testing.T) {
 	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
 	assert.Equal(t, "no-store, no-cache, must-revalidate", w.Header().Get("Cache-Control"))
 	assert.Equal(t, "no-cache", w.Header().Get("Pragma"))
+}
+
+func TestServer_Idempotency(t *testing.T) {
+	lc := fxtest.NewLifecycle(t)
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+	}
+
+	s := httpServer.NewServer("test-app", lc, l, cfg, nil, nil)
+	storage := httpServer.NewMemoryIdempotencyStorage()
+
+	callCount := 0
+
+	// Consumer route with custom canonical key based on reference ID in body
+	s.POST("/checkout",
+		httpServer.Idempotency(storage,
+			httpServer.WithCanonicalKeyFunc(func(c *gin.Context, body []byte) (string, error) {
+				var req struct {
+					Ref string `json:"ref"`
+				}
+				if err := json.Unmarshal(body, &req); err == nil && req.Ref != "" {
+					return "order:" + req.Ref, nil
+				}
+				return "", fmt.Errorf("ref is required")
+			}),
+		),
+		func(c *gin.Context) {
+			callCount++
+			c.JSON(http.StatusOK, gin.H{"processed": true, "count": callCount})
+		},
+	)
+
+	body := `{"ref": "REF-001", "total": 25000}`
+
+	// 1. Initial request -> Handler executes
+	req1, _ := http.NewRequest(http.MethodPost, "/checkout", bytes.NewBufferString(body))
+	req1.Header.Set("Content-Type", "application/json")
+	w1 := httptest.NewRecorder()
+	s.ServeHTTP(w1, req1)
+	assert.Equal(t, http.StatusOK, w1.Code)
+	assert.Equal(t, 1, callCount)
+
+	// 2. Duplicate retry with same ref -> Cached response replayed without executing handler
+	req2, _ := http.NewRequest(http.MethodPost, "/checkout", bytes.NewBufferString(body))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	s.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusOK, w2.Code)
+	assert.Equal(t, 1, callCount)
+	assert.Equal(t, "true", w2.Header().Get("X-Idempotent-Replayed"))
+	assert.Equal(t, w1.Body.String(), w2.Body.String())
 }

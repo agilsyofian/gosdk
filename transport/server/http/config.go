@@ -17,10 +17,18 @@ type Config struct {
 	DisableBlockSpecialChars   bool                  `mapstructure:"disable_block_special_chars"`
 	AllowedSpecialCharsRegex   string                `mapstructure:"allowed_special_chars_regex"`
 	SecurityHeaders            SecurityHeadersConfig `mapstructure:"security_headers"`
+	Idempotency                IdempotencyConfig     `mapstructure:"idempotency"`
 	EnableSwagger              bool                  `mapstructure:"enable_swagger"`
 	ShowErrorDetail            bool                  `mapstructure:"show_error_detail"`
 	LoggerExcludeRoutes        []string              `mapstructure:"logger_exclude_routes"`
 	Actuator                   ActuatorConfig        `mapstructure:"actuator"`
+}
+
+type IdempotencyConfig struct {
+	Enabled     bool          `mapstructure:"enabled"`
+	TTL         time.Duration `mapstructure:"ttl"`
+	LockTimeout time.Duration `mapstructure:"lock_timeout"`
+	HeaderName  string        `mapstructure:"header_name"`
 }
 
 type SecurityHeadersConfig struct {
