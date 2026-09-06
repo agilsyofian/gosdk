@@ -48,3 +48,13 @@ func WithSignatureMaxClockDrift(drift time.Duration) SignatureOption {
 func WithSignatureResponseSigning(enabled bool) SignatureOption {
 	return signature.WithSignResponse(enabled)
 }
+
+// StaticSecret creates a static SecretProvider.
+func StaticSecret(secret []byte) SignatureSecretProvider {
+	return signature.StaticSecret(secret)
+}
+
+// MapSecret creates a map-backed SecretProvider.
+func MapSecret(secrets map[string][]byte) SignatureSecretProvider {
+	return signature.MapSecret(secrets)
+}

@@ -18,10 +18,25 @@ type Config struct {
 	AllowedSpecialCharsRegex   string                `mapstructure:"allowed_special_chars_regex"`
 	SecurityHeaders            SecurityHeadersConfig `mapstructure:"security_headers"`
 	Idempotency                IdempotencyConfig     `mapstructure:"idempotency"`
+	Signature                  SignatureConfig       `mapstructure:"signature"`
 	EnableSwagger              bool                  `mapstructure:"enable_swagger"`
 	ShowErrorDetail            bool                  `mapstructure:"show_error_detail"`
 	LoggerExcludeRoutes        []string              `mapstructure:"logger_exclude_routes"`
 	Actuator                   ActuatorConfig        `mapstructure:"actuator"`
+}
+
+type SignatureConfig struct {
+	Enabled                 bool          `mapstructure:"enabled"`
+	Algorithm               string        `mapstructure:"algorithm"`
+	Encoding                string        `mapstructure:"encoding"`
+	SignatureHeader         string        `mapstructure:"signature_header"`
+	TimestampHeader         string        `mapstructure:"timestamp_header"`
+	KeyIDHeader             string        `mapstructure:"key_id_header"`
+	MaxClockDrift           time.Duration `mapstructure:"max_clock_drift"`
+	SignResponse            bool          `mapstructure:"sign_response"`
+	ResponseSignatureHeader string        `mapstructure:"response_signature_header"`
+	ResponseTimestampHeader string        `mapstructure:"response_timestamp_header"`
+	Secret                  string        `mapstructure:"secret"`
 }
 
 type IdempotencyConfig struct {

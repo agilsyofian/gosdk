@@ -59,6 +59,8 @@ func (h *HttpHandler) SetupRouter() {
 		EnableBearer: true,
 	})
 
+	sigMiddleware := createSignatureMiddleware(h.appConfig.Server.HttpServer.Signature)
+
 	r.GET("/auth/certs", h.authHandler.Certificates)
 
 	v1 := r.Group("/v1")
@@ -104,12 +106,29 @@ func (h *HttpHandler) SetupRouter() {
 			h.userHandler.UserDetail,
 		)
 		user.GET("/update",
+			sigMiddleware,
 			jwtSecurity.Middleware(),
 			jwtSecurity.RequirePermission("user:update"),
 			h.userHandler.Update,
 		)
 	}
 
+}
+
+func createSignatureMiddleware(cfg http.SignatureConfig) gin.HandlerFunc {
+	secret := []byte(cfg.Secret)
+	if len(secret) == 0 {
+		secret = []byte("example-secret-key-12345")
+	}
+
+	opts := []http.SignatureOption{
+		http.WithSignatureResponseSigning(cfg.SignResponse),
+	}
+	if cfg.MaxClockDrift > 0 {
+		opts = append(opts, http.WithSignatureMaxClockDrift(cfg.MaxClockDrift))
+	}
+
+	return http.Signature(http.StaticSecret(secret), opts...)
 }
 
 type exampleHealthCheck struct{}
