@@ -13,31 +13,31 @@ import (
 	"github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/modules/auth/model"
-	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
+	"github.com/agilsyofian/gosdk/example/modules/auth/domain"
+	"github.com/agilsyofian/gosdk/example/modules/auth/port"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/jwks"
 	crypto "github.com/agilsyofian/gosdk/utils/crypto"
 )
 
-// mockUserIntegration implements user.IClientUser for testing.
-type mockUserIntegration struct {
+// mockUserFinder implements port.IUserFinder for testing.
+type mockUserFinder struct {
 	lastUsername string
 	lastDeviceID string
-	response     *pbUser.Response
+	response     *domain.UserIdentity
 	err          error
 }
 
-func (m *mockUserIntegration) GetUser(ctx context.Context, username, deviceID string) (*pbUser.Response, error) {
+func (m *mockUserFinder) GetUser(ctx context.Context, username, deviceID string) (*domain.UserIdentity, error) {
 	m.lastUsername = username
 	m.lastDeviceID = deviceID
 	return m.response, m.err
 }
 
-// mockPublisher implements IUserEventPublisher for testing.
+// mockPublisher implements port.IUserEventPublisher for testing.
 type mockPublisher struct{}
 
-func (m *mockPublisher) PublishUserEvent(ctx context.Context, event UserEvent) error {
+func (m *mockPublisher) PublishUserEvent(ctx context.Context, event port.UserEvent) error {
 	return nil
 }
 
@@ -121,9 +121,9 @@ func TestAuthService_LoginPassword_WithEncryptedFields(t *testing.T) {
 	md.Set("x-timestamp", encReq.Headers.Timestamp)
 	ctx = metadata.WithContext(ctx, md)
 
-	userMock := &mockUserIntegration{
-		response: &pbUser.Response{
-			UserId:            "user-1",
+	userMock := &mockUserFinder{
+		response: &domain.UserIdentity{
+			UserID:            "user-1",
 			Subject:           "john_doe",
 			DevicesIdentifier: "device-xyz-123",
 		},
@@ -135,16 +135,16 @@ func TestAuthService_LoginPassword_WithEncryptedFields(t *testing.T) {
 	appCfg.Security.Kid.Signing = "sig_v1"
 
 	svc := &AuthService{
-		appConfig:       appCfg,
-		logger:          generateTestLogger(),
-		userIntegration: userMock,
-		publisher:       &mockPublisher{},
-		session:         &mockSessionManager{},
-		fieldDecryptor:  decryptor,
-		jwks:            jwks.Jwks{},
+		appConfig:      appCfg,
+		logger:         generateTestLogger(),
+		userFinder:     userMock,
+		publisher:      &mockPublisher{},
+		session:        &mockSessionManager{},
+		fieldDecryptor: decryptor,
+		jwks:           jwks.Jwks{},
 	}
 
-	loginCmd := model.Login{
+	loginCmd := domain.Login{
 		Username: encUsername,
 		Password: encPassword,
 	}
@@ -179,7 +179,7 @@ func TestAuthService_LoginPassword_DecryptionFailsOnBadHeader(t *testing.T) {
 		fieldDecryptor: decryptor,
 	}
 
-	_, err := svc.LoginPassword(ctx, model.Login{
+	_, err := svc.LoginPassword(ctx, domain.Login{
 		Username: "some_data",
 		Password: "some_password",
 	})

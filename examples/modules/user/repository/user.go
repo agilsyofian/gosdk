@@ -5,20 +5,20 @@ import (
 	"database/sql"
 
 	"github.com/agilsyofian/gosdk/core/errors"
-	"github.com/agilsyofian/gosdk/example/modules/user/model"
+	"github.com/agilsyofian/gosdk/example/modules/user/domain"
 	"github.com/agilsyofian/gosdk/storage/database"
 	"github.com/lib/pq"
 )
 
 type IUserRepository interface {
-	GetUser(ctx context.Context, subject, deviceId string) (*model.User, error)
+	GetUser(ctx context.Context, subject, deviceId string) (*domain.User, error)
 }
 
 type userRepository struct {
 	db database.Database
 }
 
-func (r userRepository) GetUser(ctx context.Context, subject, deviceId string) (*model.User, error) {
+func (r userRepository) GetUser(ctx context.Context, subject, deviceId string) (*domain.User, error) {
 	row := r.db.QueryRow(ctx, `
 		SELECT id, status, email, phone_number, full_name, display_name,
 		       avatar_url, locale, timezone, subject, password_hash,
@@ -29,7 +29,7 @@ func (r userRepository) GetUser(ctx context.Context, subject, deviceId string) (
 		LIMIT 1
 	`, subject, deviceId)
 
-	var detail model.User
+	var detail domain.User
 	var roles, permissions pq.StringArray
 	var phoneNumber, fullName, displayName, avatarURL, locale, timezone sql.NullString
 	var authSubject, passwordHash, biometricHash sql.NullString
@@ -78,7 +78,7 @@ func (r userRepository) GetUser(ctx context.Context, subject, deviceId string) (
 	return &detail, nil
 }
 
-func NewUserRepository(db database.Database) IUserRepository {
+func New(db database.Database) IUserRepository {
 	return &userRepository{
 		db: db,
 	}

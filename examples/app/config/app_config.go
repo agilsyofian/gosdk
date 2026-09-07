@@ -7,7 +7,7 @@ import (
 	"github.com/agilsyofian/gosdk/security/jwks"
 	"github.com/agilsyofian/gosdk/storage/cache/redis"
 	"github.com/agilsyofian/gosdk/storage/database/postgres"
-	objectstorage "github.com/agilsyofian/gosdk/storage/objectstorage/s3"
+	"github.com/agilsyofian/gosdk/storage/objectstorage/s3"
 	clientGrpc "github.com/agilsyofian/gosdk/transport/client/grpc"
 	clientHttp "github.com/agilsyofian/gosdk/transport/client/http"
 	serverGrpc "github.com/agilsyofian/gosdk/transport/server/grpc"
@@ -41,9 +41,9 @@ type AppConfig struct {
 	} `mapstructure:"observability"`
 
 	Storage struct {
-		Cache         redis.Config         `mapstructure:"cache"`
-		Postgres      postgres.Config      `mapstructure:"postgres"`
-		ObjectStorage objectstorage.Config `mapstructure:"objectstorage"`
+		Cache         redis.Config    `mapstructure:"cache"`
+		Postgres      postgres.Config `mapstructure:"postgres"`
+		ObjectStorage s3.Config       `mapstructure:"objectstorage"`
 	} `mapstructure:"storage"`
 
 	HttpIntegrations map[string]clientHttp.Config `mapstructure:"http_integrations"`

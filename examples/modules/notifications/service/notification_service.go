@@ -14,7 +14,7 @@ type NotificationService struct {
 	logger logger.Logger
 }
 
-func NewService(logger logger.Logger) INotificationService {
+func New(logger logger.Logger) INotificationService {
 	return &NotificationService{
 		logger: logger,
 	}

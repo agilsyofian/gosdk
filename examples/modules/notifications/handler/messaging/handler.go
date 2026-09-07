@@ -18,7 +18,7 @@ type Messaging struct {
 	notifService service.INotificationService
 }
 
-func NewHandler(
+func New(
 	notifService service.INotificationService,
 ) IMessagingHandler {
 	return &Messaging{

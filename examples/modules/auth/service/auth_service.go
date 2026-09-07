@@ -10,9 +10,8 @@ import (
 	"github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
-	"github.com/agilsyofian/gosdk/example/modules/auth/model"
-	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
+	"github.com/agilsyofian/gosdk/example/modules/auth/domain"
+	"github.com/agilsyofian/gosdk/example/modules/auth/port"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
@@ -23,36 +22,36 @@ import (
 
 type IAuthService interface {
 	Certificates(ctx context.Context) (res jwks.Jwks, err error)
-	LoginPassword(ctx context.Context, cmd model.Login) (res model.Token, err error)
+	LoginPassword(ctx context.Context, cmd domain.Login) (res domain.Token, err error)
 	Logout(ctx context.Context) (err error)
-	TokenRefresh(ctx context.Context, token model.TokenRefresh) (res model.TokenRefresh, err error)
+	TokenRefresh(ctx context.Context, cmd domain.RefreshTokenCmd) (res domain.Token, err error)
 }
 
 type AuthService struct {
-	appConfig       config.AppConfig
-	logger          logger.Logger
-	cache           cache.Cache
-	jwtConfig       jwt.Config
-	jwks            jwks.Jwks
-	session         security.SessionManager
-	userIntegration user.IClientUser
-	publisher       IUserEventPublisher
-	fieldDecryptor  *crypto.FieldDecryptor
+	appConfig      config.AppConfig
+	logger         logger.Logger
+	cache          cache.Cache
+	jwtConfig      jwt.Config
+	jwks           jwks.Jwks
+	session        security.SessionManager
+	userFinder     port.IUserFinder
+	publisher      port.IUserEventPublisher
+	fieldDecryptor *crypto.FieldDecryptor
 }
 
-func NewService(
+func New(
 	deps AuthServiceDeps,
 ) IAuthService {
 	return &AuthService{
-		appConfig:       deps.AppConfig,
-		logger:          deps.Logger,
-		cache:           deps.Cache,
-		jwtConfig:       deps.JwtConfig,
-		jwks:            deps.Jwks,
-		session:         deps.Session,
-		userIntegration: deps.UserIntegration,
-		publisher:       deps.Publisher,
-		fieldDecryptor:  deps.FieldDecryptor,
+		appConfig:      deps.AppConfig,
+		logger:         deps.Logger,
+		cache:          deps.Cache,
+		jwtConfig:      deps.JwtConfig,
+		jwks:           deps.Jwks,
+		session:        deps.Session,
+		userFinder:     deps.UserFinder,
+		publisher:      deps.Publisher,
+		fieldDecryptor: deps.FieldDecryptor,
 	}
 }
 
@@ -77,12 +76,12 @@ const (
 	codeDecryptOpenFailed = "4021"
 )
 
-func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res model.Token, err error) {
+func (s *AuthService) LoginPassword(ctx context.Context, cmd domain.Login) (res domain.Token, err error) {
 
 	md, ok := metadata.FromContext(ctx)
 	const message = "invalid login credentials"
 	if !ok {
-		return model.Token{}, errors.BadRequest(errors.String("metadata not found"), s.appConfig.AppName, codeMetadataMissing, message)
+		return domain.Token{}, errors.BadRequest(errors.String("metadata not found"), s.appConfig.AppName, codeMetadataMissing, message)
 	}
 	cmd.DeviceIdentifier = md.Get("x-device-id")
 
@@ -95,19 +94,19 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 	// will error — enforce that by always requiring encrypted fields on this endpoint).
 	cmd, err = s.decryptLoginFields(ctx, cmd, md)
 	if err != nil {
-		return model.Token{}, errors.BadRequest(err, s.appConfig.AppName, codeValidationFailed, message)
+		return domain.Token{}, errors.BadRequest(err, s.appConfig.AppName, codeValidationFailed, message)
 	}
 
 	if err = ValidateAuthCommand(cmd); err != nil {
-		return model.Token{}, errors.BadRequest(err, s.appConfig.AppName, codeValidationFailed, message)
+		return domain.Token{}, errors.BadRequest(err, s.appConfig.AppName, codeValidationFailed, message)
 	}
 
-	userData, err := s.userIntegration.GetUser(ctx, cmd.Username, cmd.DeviceIdentifier)
+	userData, err := s.userFinder.GetUser(ctx, cmd.Username, cmd.DeviceIdentifier)
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeUserLookupFailed, message)
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeUserLookupFailed, message)
 	}
 	if userData == nil {
-		return model.Token{}, errors.Unauthorized(errors.String("user lookup returned no data"), s.appConfig.AppName, codeUserNotFound, message)
+		return domain.Token{}, errors.Unauthorized(errors.String("user lookup returned no data"), s.appConfig.AppName, codeUserNotFound, message)
 	}
 
 	//if err := bcrypt.CompareHashAndPassword([]byte(userData.PasswordHash), []byte(cmd.Password)); err != nil {
@@ -116,22 +115,22 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 
 	res, err = s.generateJwtToken(ctx, userData)
 	if err != nil {
-		return model.Token{}, errors.Unauthorized(err, s.appConfig.AppName, codeSessionFailed, "failed to start session")
+		return domain.Token{}, errors.Unauthorized(err, s.appConfig.AppName, codeSessionFailed, "failed to start session")
 	}
 
 	eventId := uuid.New().String()
 	jsonRaw, err := json.Marshal(userData)
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeEventMarshal, "error marshaling user data")
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeEventMarshal, "error marshaling user data")
 	}
-	err = s.publisher.PublishUserEvent(ctx, UserEvent{
+	err = s.publisher.PublishUserEvent(ctx, port.UserEvent{
 		EventID:   eventId,
-		EventType: UserEventCreated,
-		UserID:    userData.UserId,
+		EventType: port.UserEventCreated,
+		UserID:    userData.UserID,
 		Data:      jsonRaw,
 	})
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeEventPublish, "error publishing user event")
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeEventPublish, "error publishing user event")
 	}
 
 	return res, err
@@ -144,7 +143,7 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 //
 // The caller is responsible for running ValidateAuthCommand AFTER this returns
 // so that the validator always sees the plaintext values.
-func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, md *metadata.Metadata) (model.Login, error) {
+func (s *AuthService) decryptLoginFields(ctx context.Context, cmd domain.Login, md *metadata.Metadata) (domain.Login, error) {
 	const message = "invalid login credentials"
 
 	h := crypto.FieldHeaders{
@@ -159,7 +158,7 @@ func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, m
 		s.logger.Error(ctx, "login: field decryptor is not configured", logger.LogPayload{
 			Error: "field decryptor is nil",
 		})
-		return model.Login{}, errors.InternalServerError(
+		return domain.Login{}, errors.InternalServerError(
 			errors.String("field decryptor not configured"),
 			s.appConfig.AppName,
 			codeDecryptOpenFailed,
@@ -175,7 +174,7 @@ func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, m
 		s.logger.Warn(ctx, "login: field decryption open failed", logger.LogPayload{
 			Error: err.Error(),
 		})
-		return model.Login{}, errors.BadRequest(
+		return domain.Login{}, errors.BadRequest(
 			errors.String(errorMessage),
 			s.appConfig.AppName,
 			codeDecryptOpenFailed,
@@ -189,7 +188,7 @@ func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, m
 		s.logger.Warn(ctx, "login: failed to decrypt username", logger.LogPayload{
 			Error: err.Error(),
 		})
-		return model.Login{}, errors.BadRequest(
+		return domain.Login{}, errors.BadRequest(
 			errors.String(errorMessage),
 			s.appConfig.AppName,
 			codeDecryptionFailed,
@@ -203,7 +202,7 @@ func (s *AuthService) decryptLoginFields(ctx context.Context, cmd model.Login, m
 		s.logger.Warn(ctx, "login: failed to decrypt password", logger.LogPayload{
 			Error: err.Error(),
 		})
-		return model.Login{}, errors.BadRequest(
+		return domain.Login{}, errors.BadRequest(
 			errors.String(errorMessage),
 			s.appConfig.AppName,
 			codeDecryptionFailed,
@@ -236,13 +235,13 @@ func (s *AuthService) Logout(ctx context.Context) (err error) {
 // used to be, so a client gets a normal 501 response instead of an
 // unhandled crash recovered only by the HTTP server's Recovery
 // middleware.
-func (s *AuthService) TokenRefresh(ctx context.Context, req model.TokenRefresh) (res model.TokenRefresh, err error) {
-	return model.TokenRefresh{}, errors.NotImplemented(errors.String("token refresh is not implemented"), s.appConfig.AppName, "5010", "token refresh is not available yet")
+func (s *AuthService) TokenRefresh(ctx context.Context, req domain.RefreshTokenCmd) (res domain.Token, err error) {
+	return domain.Token{}, errors.NotImplemented(errors.String("token refresh is not implemented"), s.appConfig.AppName, "5010", "token refresh is not available yet")
 }
 
-func (s *AuthService) generateJwtToken(ctx context.Context, userData *pbUser.Response) (res model.Token, err error) {
+func (s *AuthService) generateJwtToken(ctx context.Context, userData *domain.UserIdentity) (res domain.Token, err error) {
 
-	userId := userData.UserId
+	userId := userData.UserID
 	sessionID := userId + ":" + userData.DevicesIdentifier + strings.ReplaceAll(uuid.New().String(), "-", "")
 	expiresAccessTokenAt := time.Now().Add(time.Minute * 5)
 	expiresRefreshTokenAt := time.Now().Add(time.Hour * 24)
@@ -251,17 +250,17 @@ func (s *AuthService) generateJwtToken(ctx context.Context, userData *pbUser.Res
 	pvk, err := jwt.B64ToPrivateKey(s.appConfig.Security.PrivateKey[kid])
 	const message = "error while generating jwt token"
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5003", message)
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5003", message)
 	}
 
 	token, err := jwt.Issue(s.jwtConfig, pvk, userId, sessionID, time.Until(expiresAccessTokenAt), nil)
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5004", message)
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5004", message)
 	}
 
 	refreshToken, err := jwt.Issue(s.jwtConfig, pvk, userId, sessionID, time.Until(expiresRefreshTokenAt), nil)
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5004", message)
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5004", message)
 	}
 
 	_ = s.session.Delete(ctx, userId)
@@ -277,7 +276,7 @@ func (s *AuthService) generateJwtToken(ctx context.Context, userData *pbUser.Res
 			"displayName":       userData.DisplayName,
 			"status":            userData.Status,
 			"phoneNumber":       userData.PhoneNumber,
-			"avatarUrl":         userData.AvatarUrl,
+			"avatarUrl":         userData.AvatarURL,
 			"locale":            userData.Locale,
 			"timezone":          userData.Timezone,
 			"devicesIdentifier": userData.DevicesIdentifier,
@@ -288,10 +287,10 @@ func (s *AuthService) generateJwtToken(ctx context.Context, userData *pbUser.Res
 	}
 	_, err = s.session.Create(ctx, sessionID, principal, time.Until(expiresAccessTokenAt.Add(1*time.Minute)))
 	if err != nil {
-		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5005", "error creating session")
+		return domain.Token{}, errors.InternalServerError(err, s.appConfig.AppName, "5005", "error creating session")
 	}
 
-	return model.Token{
+	return domain.Token{
 		AccessToken:  token,
 		RefreshToken: refreshToken,
 	}, nil

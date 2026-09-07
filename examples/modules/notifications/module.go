@@ -9,8 +9,8 @@ import (
 
 var Module = fx.Module("module-notifications",
 	fx.Provide(
-		service.NewService,
-		messaging.NewHandler,
+		service.New,
+		messaging.New,
 		consumer.AsTopicSubscriber(messaging.NewUserEventSubscriber),
 		consumer.AsTopicSubscriber(messaging.NewNotificationEventSubscriber),
 	),

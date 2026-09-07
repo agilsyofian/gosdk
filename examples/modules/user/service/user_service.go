@@ -6,15 +6,15 @@ import (
 	"github.com/agilsyofian/gosdk/core/errors"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/modules/user/model"
+	"github.com/agilsyofian/gosdk/example/modules/user/domain"
 	"github.com/agilsyofian/gosdk/example/modules/user/repository"
 	"github.com/agilsyofian/gosdk/security"
 )
 
 type IUserService interface {
-	GetUser(ctx context.Context, username, deviceId string) (model.User, error)
-	Detail(ctx context.Context) (model.User, error)
-	Update(ctx context.Context) (res model.User, err error)
+	GetUser(ctx context.Context, username, deviceId string) (domain.User, error)
+	Detail(ctx context.Context) (domain.User, error)
+	Update(ctx context.Context) (res domain.User, err error)
 }
 
 type UserService struct {
@@ -23,7 +23,7 @@ type UserService struct {
 	repoUser  repository.IUserRepository
 }
 
-func NewUserService(deps UserServiceDeps) IUserService {
+func New(deps UserServiceDeps) IUserService {
 	return &UserService{
 		appConfig: deps.AppConfig,
 		logger:    deps.Logger,
@@ -31,27 +31,27 @@ func NewUserService(deps UserServiceDeps) IUserService {
 	}
 }
 
-func (s UserService) GetUser(ctx context.Context, username, deviceId string) (model.User, error) {
+func (s UserService) GetUser(ctx context.Context, username, deviceId string) (domain.User, error) {
 	res, err := s.repoUser.GetUser(ctx, username, deviceId)
 	if err != nil {
-		return model.User{}, err
+		return domain.User{}, err
 	}
 	return *res, err
 }
 
-func (s UserService) Detail(ctx context.Context) (model.User, error) {
+func (s UserService) Detail(ctx context.Context) (domain.User, error) {
 	secContext, err := security.MustFromContext(ctx)
 	if err != nil {
-		return model.User{}, errors.Unauthorized(err, s.appConfig.AppName, "4001", "no active session")
+		return domain.User{}, errors.Unauthorized(err, s.appConfig.AppName, "4001", "no active session")
 	}
 
-	return model.UserFromPrincipal(secContext.Session.Principal)
+	return domain.UserFromPrincipal(secContext.Session.Principal)
 }
 
-func (s UserService) Update(ctx context.Context) (res model.User, err error) {
+func (s UserService) Update(ctx context.Context) (res domain.User, err error) {
 	_, err = security.MustFromContext(ctx)
 	if err != nil {
-		return model.User{}, errors.Unauthorized(err, s.appConfig.AppName, "4001", "no active session")
+		return domain.User{}, errors.Unauthorized(err, s.appConfig.AppName, "4001", "no active session")
 	}
 	return res, err
 }

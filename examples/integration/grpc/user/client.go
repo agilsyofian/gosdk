@@ -7,22 +7,19 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/interceptor"
-	"github.com/agilsyofian/gosdk/example/proto/user"
+	"github.com/agilsyofian/gosdk/example/modules/auth/domain"
+	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/transport/client/grpc"
 )
 
-type IClientUser interface {
-	GetUser(ctx context.Context, username, deviceId string) (*user.Response, error)
-}
-
 type ClientUser struct {
 	appCfg     config.AppConfig
 	client     *grpc.Client
-	authClient user.ServiceUserClient
+	authClient pbUser.ServiceUserClient
 }
 
-func NewClientUser(appCfg config.AppConfig, l logger.Logger) (IClientUser, error) {
+func NewClientUser(appCfg config.AppConfig, l logger.Logger) (*ClientUser, error) {
 
 	cfg := appCfg.GrpcIntegrations["user"]
 
@@ -37,7 +34,7 @@ func NewClientUser(appCfg config.AppConfig, l logger.Logger) (IClientUser, error
 		return nil, fmt.Errorf("dial user client: %w", err)
 	}
 
-	authClient := user.NewServiceUserClient(conn)
+	authClient := pbUser.NewServiceUserClient(conn)
 
 	return &ClientUser{
 		appCfg:     appCfg,
@@ -50,9 +47,37 @@ func (c *ClientUser) Close() error {
 	return c.client.Close()
 }
 
-func (c *ClientUser) GetUser(ctx context.Context, username, deviceId string) (*user.Response, error) {
-	return c.authClient.GetUser(ctx, &user.Request{
+func (c *ClientUser) GetUser(ctx context.Context, username, deviceId string) (*domain.UserIdentity, error) {
+	resp, err := c.authClient.GetUser(ctx, &pbUser.Request{
 		Username: username,
 		DeviceId: deviceId,
 	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, nil
+	}
+
+	return &domain.UserIdentity{
+		UserID:            resp.UserId,
+		Subject:           resp.Subject,
+		Email:             resp.Email,
+		PhoneNumber:       resp.PhoneNumber,
+		FullName:          resp.FullName,
+		DisplayName:       resp.DisplayName,
+		AvatarURL:         resp.AvatarUrl,
+		Locale:            resp.Locale,
+		Timezone:          resp.Timezone,
+		Status:            resp.Status,
+		DevicesIdentifier: resp.DevicesIdentifier,
+		Platform:          resp.Platform,
+		DeviceName:        resp.DeviceName,
+		PushToken:         resp.PushToken,
+		Roles:             resp.Roles,
+		Permissions:       resp.Permissions,
+		PasswordHash:      resp.PasswordHash,
+		BiometricEnabled:  resp.BiometricEnabled,
+		BiometricHash:     resp.BiometricHash,
+	}, nil
 }

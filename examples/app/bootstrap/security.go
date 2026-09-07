@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	appSecurity "github.com/agilsyofian/gosdk/example/app/security"
+	"github.com/agilsyofian/gosdk/example/app/security"
 	"go.uber.org/fx"
 )
 
@@ -13,7 +13,7 @@ import (
 // change if a second authenticator is added later.
 var Security = fx.Module("security",
 	fx.Provide(
-		appSecurity.Manager,
-		appSecurity.FieldDecryptor,
+		security.Manager,
+		security.FieldDecryptor,
 	),
 )

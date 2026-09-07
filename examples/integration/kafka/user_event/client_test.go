@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/modules/auth/service"
+	"github.com/agilsyofian/gosdk/example/modules/auth/port"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,9 +18,9 @@ func TestUserEventPublisher_NilClient(t *testing.T) {
 func TestUserEventPublisher_MarshalError(t *testing.T) {
 	pub := &UserEventPublisher{producer: nil}
 	// Event with normal data should attempt publish (and panic or fail because producer is nil)
-	event := service.UserEvent{
+	event := port.UserEvent{
 		EventID:   "evt-1",
-		EventType: service.UserEventCreated,
+		EventType: port.UserEventCreated,
 		UserID:    "user-1",
 		Data:      []byte(`{"foo":"bar"}`),
 	}

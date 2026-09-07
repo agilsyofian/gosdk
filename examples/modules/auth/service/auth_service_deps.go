@@ -3,7 +3,7 @@ package service
 import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
+	"github.com/agilsyofian/gosdk/example/modules/auth/port"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
@@ -15,13 +15,13 @@ import (
 type AuthServiceDeps struct {
 	fx.In
 
-	AppConfig       config.AppConfig
-	Logger          logger.Logger
-	Cache           cache.Cache
-	JwtConfig       jwt.Config
-	Jwks            jwks.Jwks
-	Session         security.SessionManager
-	UserIntegration user.IClientUser
-	Publisher       IUserEventPublisher
-	FieldDecryptor  *crypto.FieldDecryptor
+	AppConfig      config.AppConfig
+	Logger         logger.Logger
+	Cache          cache.Cache
+	JwtConfig      jwt.Config
+	Jwks           jwks.Jwks
+	Session        security.SessionManager
+	UserFinder     port.IUserFinder
+	Publisher      port.IUserEventPublisher
+	FieldDecryptor *crypto.FieldDecryptor
 }

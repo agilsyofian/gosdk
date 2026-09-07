@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/modules/auth/service"
+	"github.com/agilsyofian/gosdk/example/modules/auth/port"
 	"github.com/agilsyofian/gosdk/messaging/kafka"
 )
 
@@ -14,7 +14,7 @@ type UserEventPublisher struct {
 	producer *kafka.Producer
 }
 
-func NewUserEventPublisher(client *kafka.Client, cfg config.AppConfig) (service.IUserEventPublisher, error) {
+func NewUserEventPublisher(client *kafka.Client, cfg config.AppConfig) (port.IUserEventPublisher, error) {
 	if client == nil {
 		return nil, fmt.Errorf("integration user_event: kafka client is nil")
 	}
@@ -35,7 +35,7 @@ func NewUserEventPublisher(client *kafka.Client, cfg config.AppConfig) (service.
 	return &UserEventPublisher{producer: prod}, nil
 }
 
-func (p *UserEventPublisher) PublishUserEvent(ctx context.Context, event service.UserEvent) error {
+func (p *UserEventPublisher) PublishUserEvent(ctx context.Context, event port.UserEvent) error {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("integration user_event: marshal event: %w", err)
