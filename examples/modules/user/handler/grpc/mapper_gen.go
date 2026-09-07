@@ -5,7 +5,7 @@ package grpc
 import (
 	"fmt"
 
-	"github.com/agilsyofian/gosdk/example/app/lib/converters"
+	"github.com/agilsyofian/gosdk/example/app/shared/converters"
 	"github.com/agilsyofian/gosdk/example/modules/user/model"
 	"github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/google/uuid"

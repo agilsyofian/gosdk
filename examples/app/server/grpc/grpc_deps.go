@@ -1,4 +1,4 @@
-package server
+package grpc
 
 import (
 	"github.com/agilsyofian/gosdk/core/observability/health"
@@ -14,7 +14,8 @@ type GrpcHandlerDeps struct {
 
 	AppConfig   config.AppConfig
 	Server      *grpc.Server
-	Health      health.Registry
-	Security    security.SecurityManager
-	UserHandler user.ServiceUserServer
+	Health      health.Registry          `optional:"true"`
+	Security    security.SecurityManager `optional:"true"`
+	Services    []GRPCServiceRegistrar   `group:"grpc_services"`
+	UserHandler user.ServiceUserServer   `optional:"true"`
 }

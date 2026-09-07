@@ -4,7 +4,6 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
-	publisher2 "github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/security/authenticator/jwt"
 	"github.com/agilsyofian/gosdk/security/jwks"
@@ -23,6 +22,6 @@ type AuthServiceDeps struct {
 	Jwks            jwks.Jwks
 	Session         security.SessionManager
 	UserIntegration user.IClientUser
-	Publisher       publisher2.IPublisher
+	Publisher       IUserEventPublisher
 	FieldDecryptor  *crypto.FieldDecryptor
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/agilsyofian/gosdk/core/metadata"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
-	"github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/example/modules/auth/model"
 	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/agilsyofian/gosdk/security"
@@ -35,13 +34,10 @@ func (m *mockUserIntegration) GetUser(ctx context.Context, username, deviceID st
 	return m.response, m.err
 }
 
-// mockPublisher implements publisher.IPublisher for testing.
+// mockPublisher implements IUserEventPublisher for testing.
 type mockPublisher struct{}
 
-func (m *mockPublisher) UserEvent(ctx context.Context, event publisher.UserEvent) error {
-	return nil
-}
-func (m *mockPublisher) NotificationEvent(ctx context.Context, event publisher.NotificationEvent) error {
+func (m *mockPublisher) PublishUserEvent(ctx context.Context, event UserEvent) error {
 	return nil
 }
 

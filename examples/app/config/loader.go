@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -13,10 +14,15 @@ func LoadConfig() (AppConfig, error) {
 
 	v.SetConfigName("env")
 	v.SetConfigType("yaml")
+	if configPath := os.Getenv("CONFIG_PATH"); configPath != "" {
+		v.AddConfigPath(configPath)
+	}
+
 	v.AddConfigPath(".")
-	v.AddConfigPath("example")
+	v.AddConfigPath("config")
+	v.AddConfigPath("./config")
 	v.AddConfigPath("..")
-	v.AddConfigPath("../example")
+	v.AddConfigPath("../..")
 
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()

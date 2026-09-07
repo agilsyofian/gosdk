@@ -19,32 +19,32 @@ type AppConfig struct {
 	AppVersion string `mapstructure:"app_version" validate:"required"`
 
 	Server struct {
-		HttpServer serverHttp.Config `mapstructure:"http" validate:"required"`
-		GrpcServer serverGrpc.Config `mapstructure:"grpc" validate:"required"`
-	} `mapstructure:"server" validate:"required"`
+		HttpServer serverHttp.Config `mapstructure:"http"`
+		GrpcServer serverGrpc.Config `mapstructure:"grpc"`
+	} `mapstructure:"server"`
 
 	Security struct {
 		Kid struct {
-			Signing    string `mapstructure:"signin" validate:"required"`
-			Encryption string `mapstructure:"encryption" validate:"required"`
-		} `mapstructure:"kid" validate:"required"`
-		PrivateKey     map[string]string `mapstructure:"private_key" validate:"required"`
-		JWKS           jwks.Jwks         `mapstructure:"jwks" validate:"required"`
+			Signing    string `mapstructure:"signin"`
+			Encryption string `mapstructure:"encryption"`
+		} `mapstructure:"kid"`
+		PrivateKey     map[string]string `mapstructure:"private_key"`
+		JWKS           jwks.Jwks         `mapstructure:"jwks"`
 		Authenticators struct {
-			Jwt jwt.Config `mapstructure:"jwt" validate:"required"`
-		} `mapstructure:"authenticators" validate:"required"`
-	} `mapstructure:"security" validate:"required"`
+			Jwt jwt.Config `mapstructure:"jwt"`
+		} `mapstructure:"authenticators"`
+	} `mapstructure:"security"`
 
 	Observability struct {
-		Logger logger.Config  `mapstructure:"logger" validate:"required"`
-		Tracer tracing.Config `mapstructure:"tracer" validate:"required"`
-	} `mapstructure:"observability" validate:"required"`
+		Logger logger.Config  `mapstructure:"logger"`
+		Tracer tracing.Config `mapstructure:"tracer"`
+	} `mapstructure:"observability"`
 
 	Storage struct {
-		Cache         redis.Config         `mapstructure:"cache" validate:"required"`
-		Postgres      postgres.Config      `mapstructure:"postgres" validate:"required"`
+		Cache         redis.Config         `mapstructure:"cache"`
+		Postgres      postgres.Config      `mapstructure:"postgres"`
 		ObjectStorage objectstorage.Config `mapstructure:"objectstorage"`
-	} `mapstructure:"storage" validate:"required"`
+	} `mapstructure:"storage"`
 
 	HttpIntegrations map[string]clientHttp.Config `mapstructure:"http_integrations"`
 	GrpcIntegrations map[string]clientGrpc.Config `mapstructure:"grpc_integrations"`
@@ -60,11 +60,11 @@ type AppConfig struct {
 }
 
 type KafkaIntegration struct {
-	Brokers  []string          `mapstructure:"brokers" validate:"required"`
-	Topics   map[string]string `mapstructure:"topics" validate:"required"`
+	Brokers  []string          `mapstructure:"brokers"`
+	Topics   map[string]string `mapstructure:"topics"`
 	Consumer struct {
-		GroupID         string `mapstructure:"group_id" validate:"required"`
-		Concurrency     int    `mapstructure:"concurrency" validate:"required"`
+		GroupID         string `mapstructure:"group_id"`
+		Concurrency     int    `mapstructure:"concurrency"`
 		AutoOffsetReset string `mapstructure:"auto_offset_reset"`
 	} `mapstructure:"consumer"`
 }

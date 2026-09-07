@@ -2,14 +2,16 @@ package main
 
 import (
 	"github.com/agilsyofian/gosdk/example/app/bootstrap"
+	"github.com/agilsyofian/gosdk/example/app/messaging/consumer"
+	"github.com/agilsyofian/gosdk/example/app/server/grpc"
+	"github.com/agilsyofian/gosdk/example/app/server/http"
 	userService "github.com/agilsyofian/gosdk/example/integration/grpc/user"
 	"github.com/agilsyofian/gosdk/example/integration/http/httpbin"
-	"github.com/agilsyofian/gosdk/example/messaging/consumer"
-	"github.com/agilsyofian/gosdk/example/messaging/publisher"
+	userEvent "github.com/agilsyofian/gosdk/example/integration/kafka/user_event"
 	"github.com/agilsyofian/gosdk/example/modules/auth"
 	"github.com/agilsyofian/gosdk/example/modules/notifications"
+	"github.com/agilsyofian/gosdk/example/modules/storage"
 	"github.com/agilsyofian/gosdk/example/modules/user"
-	"github.com/agilsyofian/gosdk/example/server"
 	"go.uber.org/fx"
 )
 
@@ -40,22 +42,24 @@ func main() {
 		bootstrap.AuthJWT,
 		bootstrap.Session,
 		bootstrap.Security,
-		bootstrap.Server,
 		bootstrap.Messaging,
-		server.HTTP,
-		server.GRPC,
+
+		// Inbound Transports (HTTP & gRPC servers)
+		http.HTTP,
+		grpc.GRPC,
 
 		// 2. Integrations (outbound clients).
 		httpbin.Integration,
 		userService.Integration,
+		userEvent.Integration,
 
-		// 3. Messaging
-		publisher.Kafka,
+		// 3. Messaging (inbound event workers)
 		consumer.Kafka,
 
 		// 4. Business modules — start here.
 		auth.Module,
 		user.Module,
+		storage.Module,
 		notifications.Module,
 	).Run()
 }

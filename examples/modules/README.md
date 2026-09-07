@@ -18,10 +18,10 @@ modules/<name>/
 │                        # publisher, an integration client, ...).
 │                        # Depends on nothing transport-specific.
 ├── handler/
-│   ├── http/            # gin handlers: bind request -> call service -> map
-│   │                     # response. One dto.go, one mapper.go/mapper_gen.go.
-│   └── grpc/             # same idea, for a gRPC-exposed service
-└── module.go             # fx.Module: fx.Provide everything above
+│   ├── http/            # gin handlers: dto.go, handler.go, routes.go (server.RouteRegistrar)
+│   ├── grpc/            # gRPC handlers: handler.go, service_registrar.go (server.GRPCServiceRegistrar)
+│   └── messaging/       # Kafka event handlers: dto.go, handler.go, subscribers.go (consumer.TopicSubscriber)
+└── module.go            # fx.Module: fx.Provide everything above + registrars
 ```
 
 **Dependency direction is one-way: `handler -> service -> repository`.**
@@ -31,21 +31,27 @@ depend on core, never the reverse) — it's what lets you swap the HTTP
 handler for a CLI, or the Postgres repository for an in-memory fake in a
 test, without touching the layers around it.
 
-`module.go` is always the smallest file and always looks like this:
+`module.go` is always concise and self-registers routes, gRPC services, and Kafka subscribers into Fx groups without touching central server/messaging packages:
 
 ```go
 var Module = fx.Module("module-<name>",
     fx.Provide(
         repository.NewXRepository,
         service.NewXService,
+        service.NewXEventPublisher,                     // if this module publishes domain events
         http.NewHandler,
-        grpc.NewHandler, // if this module exposes gRPC too
+        server.AsRouteRegistrar(http.NewRouteRegistrar), // decentralizes HTTP route setup
+        grpc.NewHandler,                                // if this module exposes gRPC too
+        server.AsGRPCServiceRegistrar(grpc.NewServiceRegistrar),
+        messaging.NewHandler,                           // if this module consumes Kafka events
+        consumer.AsTopicSubscriber(messaging.NewXSubscriber),
     ),
 )
 ```
 
 fx resolves the constructor order from their argument types — you never
-call one constructor from another by hand.
+call one constructor from another by hand, and you never need to edit
+`server/http.go` or `messaging/consumer.go` when adding new modules.
 
 ## Walkthrough 1: `auth` — a write path (`POST /example/v1/auth/password`)
 
@@ -75,7 +81,7 @@ almost everything the SDK provides:
      and creates a session (`security.SessionManager`, Redis-backed) —
      the session, not the token, is this SDK's source of truth for who's
      logged in.
-   - Publishes a `user.event` Kafka message (`messaging/publisher`).
+   - Publishes a `user.event` Kafka message via its domain-scoped `service.IUserEventPublisher`.
 3. That published event is picked up asynchronously by **Walkthrough 2**
    below — a different module, decoupled through Kafka rather than a
    direct call.

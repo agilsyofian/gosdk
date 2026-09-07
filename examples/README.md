@@ -71,33 +71,29 @@ examples/
 ├── env.yaml           # local-dev configuration (ports, DSNs, JWT keys, topics)
 │
 ├── app/
-│   ├── config/        # env.yaml -> typed AppConfig (viper)
+│   ├── config/        # env.yaml -> typed AppConfig (viper + validator)
 │   ├── bootstrap/     # one fx.Module per SDK building block: config, logger,
-│   │                  # tracer, Postgres, Redis, JWT authenticator, session
-│   │                  # store, the shared SecurityManager, the HTTP/gRPC
-│   │                  # servers themselves, and the Kafka client.
+│   │                  # tracer, Postgres, Redis, JWT authenticator, session, etc.
+│   ├── server/        # INBOUND: self-contained transport servers
+│   │   ├── http/      #   HTTP server, routing engine & RouteRegistrar (http.HTTP)
+│   │   └── grpc/      #   gRPC server, service engine & GRPCServiceRegistrar (grpc.GRPC)
+│   ├── messaging/
+│   │   └── consumer/  # INBOUND: Kafka consumer background worker engine
 │   ├── security/      # assembles this app's security.SecurityManager
-│   └── lib/converters/ # a couple of small shared helpers
+│   └── shared/        # shared cross-cutting helpers (converters, etc)
 │
-├── server/            # binds business-module handlers onto routes/services
-│                      # for HTTP (server/http.go) and gRPC (server/grpc.go)
+├── integration/       # OUTBOUND: outbound network clients to external services & brokers
+│   ├── grpc/user/     #   gRPC client — calls User Service
+│   ├── http/httpbin/  #   HTTP client demonstrating retry/circuit-breaker
+│   └── kafka/user_event/ # Kafka event publisher implementing auth.IUserEventPublisher
 │
-├── integration/        # outbound clients to *other* services
-│   ├── user/           #   gRPC client — see the note below on why this
-│   │                    #   calls back into this same process
-│   └── httpbin/         #   HTTP client demonstrating retry/circuit-breaker
+├── proto/user/        # protobuf contract for the internal user gRPC service
 │
-├── messaging/
-│   ├── publisher/      # wraps kafka.Client for publishing domain events
-│   └── consumer/       # runs the Kafka consumers on the fx lifecycle
-│                        # (starts on app boot, stops gracefully on shutdown)
-│
-├── proto/user/         # protobuf contract for the internal user gRPC service
-│
-└── modules/             # ★ business logic — start here
-    ├── auth/            #   login, logout, token refresh, JWKS endpoint
-    ├── user/             #   user profile read/update, backed by Postgres
-    └── notifications/    #   consumes user.event, would push to FCM/APNs
+└── modules/           # ★ business logic & domain ports — start here
+    ├── auth/          #   login, logout, token refresh, JWKS endpoint
+    ├── user/          #   user profile read/update, backed by Postgres
+    ├── storage/       #   file upload/download/presigned-url via objectstorage
+    └── notifications/ #   consumes user.event, would push to FCM/APNs
 ```
 
 ### Why does `auth` call a gRPC client that connects to this same app?

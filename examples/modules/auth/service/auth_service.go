@@ -11,7 +11,6 @@ import (
 	"github.com/agilsyofian/gosdk/core/observability/logger"
 	"github.com/agilsyofian/gosdk/example/app/config"
 	"github.com/agilsyofian/gosdk/example/integration/grpc/user"
-	publisher2 "github.com/agilsyofian/gosdk/example/messaging/publisher"
 	"github.com/agilsyofian/gosdk/example/modules/auth/model"
 	pbUser "github.com/agilsyofian/gosdk/example/proto/user"
 	"github.com/agilsyofian/gosdk/security"
@@ -37,7 +36,7 @@ type AuthService struct {
 	jwks            jwks.Jwks
 	session         security.SessionManager
 	userIntegration user.IClientUser
-	publisher       publisher2.IPublisher
+	publisher       IUserEventPublisher
 	fieldDecryptor  *crypto.FieldDecryptor
 }
 
@@ -125,9 +124,9 @@ func (s *AuthService) LoginPassword(ctx context.Context, cmd model.Login) (res m
 	if err != nil {
 		return model.Token{}, errors.InternalServerError(err, s.appConfig.AppName, codeEventMarshal, "error marshaling user data")
 	}
-	err = s.publisher.UserEvent(ctx, publisher2.UserEvent{
+	err = s.publisher.PublishUserEvent(ctx, UserEvent{
 		EventID:   eventId,
-		EventType: publisher2.UserEventCreated,
+		EventType: UserEventCreated,
 		UserID:    userData.UserId,
 		Data:      jsonRaw,
 	})

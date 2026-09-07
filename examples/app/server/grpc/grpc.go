@@ -1,4 +1,4 @@
-package server
+package grpc
 
 import (
 	"github.com/agilsyofian/gosdk/example/proto/user"
@@ -9,24 +9,26 @@ type IGrpcHandler interface {
 	SetupServer()
 }
 
-type GrpcHandler struct {
+type Handler struct {
 	server      *grpc.Server
+	services    []GRPCServiceRegistrar
 	userHandler user.ServiceUserServer
 }
 
 func NewGrpcHandler(deps GrpcHandlerDeps) IGrpcHandler {
-	// Phase 5: Wire transport-agnostic health checks into standard gRPC health protocol (grpc.health.v1)
+	// Wire transport-agnostic health checks into standard gRPC health protocol (grpc.health.v1)
 	if deps.Health != nil {
 		deps.Server.SetHealthRegistry(deps.Health)
 	}
 
-	// Phase 6: Auto-wire security manager with declarative config from env.yaml (server.grpc.security)
+	// Auto-wire security manager with declarative config from env.yaml (server.grpc.security)
 	if deps.Security != nil {
 		deps.Server.SetSecurityManager(deps.Security)
 	}
 
-	return &GrpcHandler{
+	return &Handler{
 		server:      deps.Server,
+		services:    deps.Services,
 		userHandler: deps.UserHandler,
 	}
 }
@@ -35,6 +37,12 @@ func StartGrpc(h IGrpcHandler) {
 	h.SetupServer()
 }
 
-func (g GrpcHandler) SetupServer() {
-	user.RegisterServiceUserServer(g.server, g.userHandler)
+func (g Handler) SetupServer() {
+	for _, svc := range g.services {
+		svc.RegisterService(g.server)
+	}
+
+	if g.userHandler != nil && len(g.services) == 0 {
+		user.RegisterServiceUserServer(g.server, g.userHandler)
+	}
 }
