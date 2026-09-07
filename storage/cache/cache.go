@@ -9,6 +9,7 @@ import (
 type Cache interface {
 	Set(ctx context.Context, key string, value []byte, expiration time.Duration) error
 	Get(ctx context.Context, key string) ([]byte, error)
+	MGet(ctx context.Context, keys ...string) (map[string][]byte, error)
 	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
 	Incr(ctx context.Context, key string) (int64, error)
 	Delete(ctx context.Context, key string) error

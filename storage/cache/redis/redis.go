@@ -243,6 +243,36 @@ func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
 	return val, nil
 }
 
+// MGet retrieves multiple values from redis simultaneously.
+// In cluster mode, redis.UniversalClient handles cross-slot distribution automatically.
+// Returns a map of key -> value for existing keys. Missing or expired keys are omitted from the map.
+func (c *Cache) MGet(ctx context.Context, keys ...string) (map[string][]byte, error) {
+	if len(keys) == 0 {
+		return make(map[string][]byte), nil
+	}
+
+	vals, err := c.client.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis mget: %w", err)
+	}
+
+	result := make(map[string][]byte)
+	for i, v := range vals {
+		if v == nil {
+			continue
+		}
+		switch val := v.(type) {
+		case string:
+			result[keys[i]] = []byte(val)
+		case []byte:
+			result[keys[i]] = val
+		default:
+			result[keys[i]] = []byte(fmt.Sprint(val))
+		}
+	}
+	return result, nil
+}
+
 // Set stores a value in redis.
 func (c *Cache) Set(ctx context.Context, key string, value []byte, expiration time.Duration) error {
 	if err := c.client.Set(ctx, key, value, expiration).Err(); err != nil {

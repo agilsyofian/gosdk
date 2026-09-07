@@ -167,6 +167,7 @@ All methods satisfy the [`cache.Cache`](../cache.go) interface.
 | Method | Description |
 |---|---|
 | `Get(ctx, key)` | Fetch raw bytes; returns `nil, nil` on cache miss |
+| `MGet(ctx, keys...)` | Fetch multiple keys at once; returns `map[string][]byte` for existing keys |
 | `Set(ctx, key, value, ttl)` | Store raw bytes with TTL |
 | `SetNX(ctx, key, value, ttl)` | Store only if key absent; returns `true` on write |
 | `Incr(ctx, key)` | Atomic integer increment |

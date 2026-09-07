@@ -312,6 +312,79 @@ func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
 	return result, nil
 }
 
+// MGet retrieves multiple values from the local cache simultaneously.
+// Returns a map of key -> value for existing, non-expired keys. Missing or expired keys are omitted.
+func (c *Cache) MGet(ctx context.Context, keys ...string) (map[string][]byte, error) {
+	if len(keys) == 0 {
+		return make(map[string][]byte), nil
+	}
+
+	result := make(map[string][]byte)
+	err := c.hook.Execute(ctx, "mget", strings.Join(keys, " "), func() error {
+		shardGroups := c.groupKeysByShard(keys)
+		now := time.Now()
+		for s, shardKeys := range shardGroups {
+			s.mget(shardKeys, now, result)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("local mget: %w", err)
+	}
+	return result, nil
+}
+
+func (c *Cache) groupKeysByShard(keys []string) map[*shard][]string {
+	shardGroups := make(map[*shard][]string)
+	for _, key := range keys {
+		s := c.getShard(key)
+		shardGroups[s] = append(shardGroups[s], key)
+	}
+	return shardGroups
+}
+
+func (s *shard) mget(keys []string, now time.Time, result map[string][]byte) {
+	expiredKeys := s.mgetReadKeys(keys, now, result)
+	s.deleteExpiredKeys(expiredKeys, now)
+}
+
+func (s *shard) mgetReadKeys(keys []string, now time.Time, result map[string][]byte) []string {
+	var expiredKeys []string
+	s.mu.RLock()
+	for _, key := range keys {
+		it, found := s.items[key]
+		if !found {
+			continue
+		}
+		if it.isExpired(now) {
+			expiredKeys = append(expiredKeys, key)
+			continue
+		}
+
+		atomic.StoreInt64(&it.lastAccessedAt, now.UnixNano())
+		valCopy := make([]byte, len(it.value))
+		copy(valCopy, it.value)
+		result[key] = valCopy
+	}
+	s.mu.RUnlock()
+	return expiredKeys
+}
+
+func (s *shard) deleteExpiredKeys(keys []string, now time.Time) {
+	if len(keys) == 0 {
+		return
+	}
+
+	s.mu.Lock()
+	for _, key := range keys {
+		if cur, ok := s.items[key]; ok && cur.isExpired(now) {
+			s.deleteKey(key)
+		}
+	}
+	s.mu.Unlock()
+}
+
 // Set stores a value in the local cache with an optional expiration.
 func (c *Cache) Set(ctx context.Context, key string, value []byte, expiration time.Duration) error {
 	err := c.hook.Execute(ctx, "set", key, func() error {

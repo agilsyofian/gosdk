@@ -431,6 +431,72 @@ func TestShardingDistribution(t *testing.T) {
 	}
 }
 
+func TestMGet(t *testing.T) {
+	c := newTestCache(t)
+	ctx := context.Background()
+
+	// 1. Empty keys
+	res, err := c.MGet(ctx)
+	if err != nil {
+		t.Fatalf("expected nil error on empty keys, got: %v", err)
+	}
+	if len(res) != 0 {
+		t.Fatalf("expected empty result map, got: %v", res)
+	}
+
+	// 2. Non-existent keys
+	res, err = c.MGet(ctx, "non_existent_1", "non_existent_2")
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if len(res) != 0 {
+		t.Fatalf("expected empty map for missing keys, got: %v", res)
+	}
+
+	// 3. Populate test items
+	_ = c.Set(ctx, "k1", []byte("val1"), time.Minute)
+	_ = c.Set(ctx, "k2", []byte("val2"), time.Minute)
+	_ = c.Set(ctx, "k_expired", []byte("val_exp"), 20*time.Millisecond)
+
+	// Wait for k_expired to expire
+	time.Sleep(30 * time.Millisecond)
+
+	// 4. MGet with existing, missing, and expired keys
+	res, err = c.MGet(ctx, "k1", "k2", "k_missing", "k_expired", "k1")
+	if err != nil {
+		t.Fatalf("mget failed: %v", err)
+	}
+
+	if len(res) != 2 {
+		t.Fatalf("expected exactly 2 items in result, got %d: %v", len(res), res)
+	}
+	if string(res["k1"]) != "val1" {
+		t.Errorf("expected k1 = 'val1', got '%s'", string(res["k1"]))
+	}
+	if string(res["k2"]) != "val2" {
+		t.Errorf("expected k2 = 'val2', got '%s'", string(res["k2"]))
+	}
+	if _, ok := res["k_missing"]; ok {
+		t.Errorf("k_missing should not be in result")
+	}
+	if _, ok := res["k_expired"]; ok {
+		t.Errorf("k_expired should not be in result")
+	}
+
+	// Verify expired key was lazily purged
+	getVal, err := c.Get(ctx, "k_expired")
+	if err != nil || getVal != nil {
+		t.Errorf("expected k_expired to be purged, got: %v, %v", getVal, err)
+	}
+
+	// 5. Verify byte slice independence (mutation of result does not mutate cache)
+	res["k1"][0] = 'Z'
+	checkVal, _ := c.Get(ctx, "k1")
+	if string(checkVal) != "val1" {
+		t.Errorf("mutation affected cache, expected 'val1', got '%s'", string(checkVal))
+	}
+}
+
 func BenchmarkShardedCache_GetSet(b *testing.B) {
 	cfg := local.DefaultConfig()
 	cfg.NumShards = 32
