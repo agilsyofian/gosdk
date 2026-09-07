@@ -3,3 +3,7 @@
 .vscode
 .data
 .claude
+
+# Release automation scripts (maintainer private tools)
+scripts/
+release.sh

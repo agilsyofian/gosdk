@@ -57,45 +57,21 @@ Before creating tags or pushing releases to the remote repository, ensure all ch
 
 ---
 
-## 4. Using the `release.sh` Release Script
+## 4. Git Tagging Procedure
 
-An automated tagging script is provided at the root of the repository: [release.sh](release.sh).
+Tags are created and pushed using standard Git commands following the Go monorepo specification:
 
-### Interactive Mode:
-Run without arguments to open an interactive terminal menu:
 ```bash
-./release.sh
+# 1. Create an annotated tag for a specific module
+git tag -a storage/objectstorage/s3/v1.0.0 -m "Release storage/objectstorage/s3 v1.0.0"
+
+# 2. Push tag to the remote repository
+git push origin storage/objectstorage/s3/v1.0.0
+
+# 3. Verify existing tags for a module
+git tag -l "storage/objectstorage/s3/*"
 ```
 
-### Single Module Release (CLI Mode):
-```bash
-# Create local tag
-./release.sh storage/objectstorage/s3 v1.0.0
-
-# Create tag and push immediately to remote
-./release.sh storage/objectstorage/s3 v1.0.0 -p
-
-# Add an annotated tag message
-./release.sh storage/objectstorage/s3 v1.0.0 -m "Release S3 & MinIO driver v1.0.0" -p
-```
-
-### Batch Release All Modules:
-Useful for the initial repository release or simultaneous major/minor upgrades:
-```bash
-# Dry-run simulation first
-./release.sh --dry-run --all v1.0.0
-
-# Create tags for all 30 modules
-./release.sh --all v1.0.0 -m "Initial Release v1.0.0 for all Go SDK modules"
-
-# Create and push all tags to origin
-./release.sh --all v1.0.0 --push
-```
-
-### List Modules & Current Tags:
-```bash
-./release.sh --list
-```
 
 ---
 

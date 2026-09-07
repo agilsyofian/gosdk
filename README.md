@@ -1,169 +1,111 @@
-# GO-SDK
+# Go SDK
 
-> **Source of truth:** the checked-in Go source code is authoritative. The files under `.instructions/` describe how to change that implementation safely.
+> Production-ready, modular enterprise Go SDK & building blocks for microservices.
 
-## 1. Project identity
+---
 
-`gosdk` is a modular Go enterprise SDK/core framework for building production microservices. It is organized as a Go workspace containing independent modules rather than one monolithic Go module.
+## ⚡ What is this SDK? (30-Second Overview)
 
-The current implementation provides reusable building blocks for:
+**`gosdk`** is an enterprise-grade toolkit for building reliable, scalable microservices in Go. Instead of a rigid monolithic framework, it is designed as a collection of **independent, plug-and-play Go modules** organized via a Go workspace (`go.work`).
 
-- standardized application errors;
-- resilience policies: retry, timeout, rate limiting, circuit breaking;
-- security: authentication, authorization, principals, sessions, and context propagation;
-- storage abstractions and concrete Redis/MySQL/PostgreSQL/Oracle implementations;
-- HTTP and gRPC client/server transport with middleware/interceptors;
-- observability primitives for logging, tracing, and health checks;
-- cryptographic utility functions;
-- developer tooling for database migration and scaffolding.
+### 🧱 Core Capabilities
 
-Some directories exist only as package/documentation placeholders. Do **not** describe an unimplemented package as a working integration.
+| Pillar | What's Included |
+|---|---|
+| 🌐 **Transport** | Clean HTTP (Gin) & gRPC servers/clients, middleware, decentralized route registrars, idempotency engine |
+| 🔒 **Security** | JWT authenticator, RBAC authorization, Redis & Memory session managers, JWKS, HMAC signatures |
+| 💾 **Storage** | SQL databases (PostgreSQL, MySQL, Oracle), Caching (Redis, Zero-dep Sharded Local Cache), Object Storage (S3/MinIO, GCS) |
+| 📨 **Messaging** | Kafka & RabbitMQ publishers and topic consumer workers |
+| 📊 **Observability** | Structured logging (Zerolog), OpenTelemetry tracing context, Kubernetes health & readiness checks |
+| 🛡️ **Resilience** | Configurable Retry, Circuit Breaker, Rate Limiting, and Timeout policies |
 
-## 2. Read before changing code
+---
 
-Read these files in this order, selecting all files relevant to the change:
+## 🚀 Quickstart: Run the Full Example App (1 Minute)
 
-1. `.instructions/project-principles.md` — project-wide invariants.
-2. `.instructions/architecture.md` — actual module boundaries and dependency direction.
-3. `.instructions/package-rules.md` — package placement and import rules.
-4. `.instructions/coding-style.md` — Go coding conventions.
-5. `.instructions/api-guidelines.md` — public API compatibility rules.
-6. `.instructions/security.md` — security requirements.
-7. `.instructions/observability.md` — logging/tracing/health conventions.
-8. `.instructions/testing.md` — test requirements.
-9. `.instructions/roadmap.md` — current implementation status and intentionally unimplemented areas.
+The fastest way to see the SDK in action is the complete runnable application in **[`examples/`](examples/)**:
 
-## 3. Repository map — current source
+```bash
+# 1. Start infrastructure (Postgres, Redis, Kafka, MinIO)
+docker compose up -d
 
-```text
-gosdk/
-├── core/
-│   ├── errors/                     # AppError and HTTP status helpers
-│   ├── resilience/                 # retry, timeout, ratelimit, circuitbreaker
-│   └── observability/
-│       ├── health/                 # health registry/checks
-│       ├── logger/                 # Logger interface + zerolog implementation
-│       ├── tracing/                # OpenTelemetry + context metadata
-│       ├── audit/                  # placeholder
-│       └── metrics/                # placeholder
-├── security/
-│   ├── authenticator/
-│   │   ├── apikey/
-│   │   ├── basicauth/
-│   │   └── jwt/
-│   ├── authorization/
-│   ├── session/
-│   │   ├── memory/
-│   │   └── redis/
-│   ├── signature/                  # HMAC/digital signature & response signing
-│   ├── jwks/
-│   └── (core security types, manager, registry, context, errors)
-├── storage/
-│   ├── cache/
-│   │   ├── local/
-│   │   └── redis/
-│   ├── database/
-│   │   ├── mysql/
-│   │   ├── oracle/
-│   │   └── postgres/
-│   └── objectstorage/              # universal interface + S3/MinIO & GCS providers
-│       ├── gcs/
-│       └── s3/
-├── transport/
-│   ├── client/
-│   │   ├── grpc/
-│   │   └── http/
-│   ├── idempotency/                # shared standard engine & storage for HTTP/gRPC
-│   └── server/
-│       ├── grpc/                   # interceptors + security extraction
-│       ├── http/                   # Gin server, middleware, DTO/security
-│       └── websocket/              # placeholder
-├── messaging/
-│   ├── kafka/                      # Kafka consumer & producer
-│   └── rabbitmq/                   # RabbitMQ consumer & producer
-├── utils/
-│   ├── concurrency/
-│   └── crypto/
-├── tools/
-│   ├── dbmigration/
-│   ├── mapgen/
-│   └── scaffold/                   # not registered in go.work (WIP)
-├── examples/                       # runnable example module
-├── release.sh                      # release tagging CLI & interactive tool
-├── RELEASE.md                      # monorepo release guide & SemVer standards
-├── go.work
-└── Makefile
+# 2. Run database migration (creates schema & seed user)
+cd tools/dbmigration
+DB_DSN="postgres://root:root@localhost:5432/postgres?sslmode=disable" go run ./cmd/migrate up
+
+# 3. Run the application
+cd ../../examples
+go run .
 ```
 
-There is **no current `app/`, `config/`, `foundation/`, or top-level `internal/` implementation**. Do not invent those packages when making changes.
+*HTTP server starts on `:8001` and gRPC on `:8081`.*
 
-## 4. Workspace and module model
+👉 **See [`examples/README.md`](examples/README.md)** for the complete end-to-end walkthrough of login, gRPC calls, Redis sessions, and Kafka event delivery.
 
-The workspace is defined by `go.work`. Current workspace modules include:
+---
 
-- `core/errors`
-- `core/metadata`
-- `core/observability`
-- `core/resilience`
-- `examples`
-- `messaging/kafka`
-- `messaging/rabbitmq`
-- `security`
-- `security/authenticator/jwt`
-- `security/jwks`
-- `security/session/redis`
-- `security/signature`
-- `storage/cache`
-- `storage/cache/local`
-- `storage/cache/redis`
-- `storage/database`
-- `storage/database/mysql`
-- `storage/database/oracle`
-- `storage/database/postgres`
-- `storage/objectstorage`
-- `storage/objectstorage/gcs`
-- `storage/objectstorage/s3`
-- `tools/dbmigration`
-- `tools/mapgen`
-- `transport/client/grpc`
-- `transport/client/http`
-- `transport/idempotency`
-- `transport/server/grpc`
-- `transport/server/http`
-- `utils`
+## 🏛️ Architecture & Best Practices
 
-For the complete guide on tagging and releasing these modules, see [RELEASE.md](RELEASE.md).
+All business modules in the SDK follow **Hexagonal Architecture (Ports & Adapters)** and are assembled using **[Uber Fx](https://github.com/uber-go/fx)**:
 
-A directory is not automatically a Go module. Use the checked-in `go.mod`/`go.work` files as the authority.
+```text
+[HTTP / gRPC / Kafka Inbound]
+             │
+             ▼
+      handler/ (httphandler, grpchandler, messaging)
+             │
+             ▼
+      service/ (Pure Business Logic & Use Cases)
+       ├──> repository/ (Internal DB Persistence via GORM/SQL)
+       └──> port/       (Outbound Interfaces -> implemented by integration/)
+             │
+             ▼
+  [Postgres / External APIs / Kafka Outbound]
+```
 
-## 5. Core engineering rules
+### 3 Key Principles for Developers
+1. **Dependency Inversion**: Domain models (`domain/`) and business logic (`service/`) **never** import transport packages (Gin, gRPC) or outbound network clients.
+2. **Decentralized Registration**: Modules self-register their own HTTP routes, gRPC services, and Kafka subscribers into Fx groups (`httpserver.AsRouteRegistrar`, `grpcserver.AsGRPCServiceRegistrar`, `consumer.AsTopicSubscriber`).
+3. **Accept Interfaces, Return Structs**: Outbound network adapters in `integration/` return concrete structs and satisfy module `port/` interfaces via `fx.As`.
 
-1. **Source code wins.** Do not preserve stale documentation claims merely because they exist in an instruction file.
-2. **Keep module boundaries explicit.** Do not add imports that create dependency cycles or bypass the layering rules.
-3. **Use `context.Context` for I/O and cancellation-aware operations.**
-4. **Preserve public APIs.** Additive changes are preferred; removals/renames require an explicit compatibility decision.
-5. **Use the SDK's existing abstractions.** Prefer `errors.AppError`, `core/observability/logger.Logger`, `storage.Cache`, `storage.Database`, `security` interfaces, and existing resilience policies instead of duplicating them.
-6. **Fail safely.** Authentication/authorization and security-sensitive failures must not become permissive fallbacks.
-7. **Do not add secrets, credentials, tokens, production endpoints, or customer data to source/tests/docs.**
-8. **Every behavior change needs appropriate tests.** Security-sensitive changes need negative/fail-closed coverage.
-9. **Do not claim functionality that is only represented by an empty package/documentation file.** Metrics, audit, and WebSocket are currently placeholders.
-10. **Prefer minimal, idiomatic Go.** Do not introduce frameworks or dependencies without a concrete need.
+👉 **See [`examples/modules/README.md`](examples/modules/README.md)** for a 5-minute recipe to build and wire a new business module.
 
-## 6. Validation before completion
+---
 
-At minimum, run the relevant module tests. For workspace-wide changes, validate the workspace with the available Go tooling and make targets. Also inspect `go.work` and module-specific `go.mod` files when dependency changes are involved.
+## 📁 Repository Layout at a Glance
 
-Before declaring a change complete:
+```text
+SDK/
+├── core/              # Standard errors, resilience, logger, tracing, health
+├── transport/         # HTTP & gRPC server/client engines, idempotency
+├── security/          # JWT, sessions, RBAC, JWKS, crypto
+├── storage/           # Database (Postgres, MySQL, Oracle), Cache (Redis, Local), Object Storage (S3, GCS)
+├── messaging/         # Kafka & RabbitMQ integrations
+├── utils/             # Concurrency & cryptographic helpers
+├── tools/             # dbmigration, mapgen
+└── examples/          # ★ Gold-standard runnable reference app & module blueprints
+```
 
-- [ ] Relevant `.instructions/` files were read.
-- [ ] The implementation matches the actual package/module structure.
-- [ ] Public API compatibility was considered.
-- [ ] Tests were added/updated for changed behavior.
-- [ ] Formatting and static analysis were run where available.
-- [ ] No security-sensitive data was introduced.
-- [ ] Documentation was updated when the public behavior or architecture changed.
-- [ ] An ADR was added only when a genuine architecture decision was introduced.
+---
 
-## 7. When uncertain
+## 🛠️ Common Commands
 
-Do not invent missing framework layers or integrations. If the requested change conflicts with the current source architecture, state the conflict and choose the smallest backward-compatible change, or ask for a decision when the trade-off cannot be resolved safely.
+```bash
+# Run tests across all modules
+make test
+
+# Format and vet code
+make fmt && make vet
+
+# Run all pre-commit quality checks (lint, test, vuln)
+make check
+```
+
+---
+
+## 📚 Further Reading
+
+- [Examples Reference Guide](examples/README.md) — Comprehensive guide to the runnable example application.
+- [Creating Business Modules](examples/modules/README.md) — Step-by-step recipe for building new modules.
+- [Release & Tagging Guide](.instructions/release.md) — Monorepo SemVer tagging and consumption instructions for maintainers.
+- [Architecture & Coding Instructions](.instructions/) — Detailed coding standards and guidelines for contributors.
