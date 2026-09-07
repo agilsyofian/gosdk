@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/agilsyofian/gosdk/core/observability/health"
@@ -22,29 +24,142 @@ var _ cache.Cache = (*Cache)(nil)
 var _ health.Check = (*Cache)(nil)
 
 type item struct {
-	value     []byte
-	expiresAt time.Time
+	value          []byte
+	expiresAt      time.Time
+	lastAccessedAt int64 // unix nano timestamp updated atomically
 }
 
-func (i item) isExpired(now time.Time) bool {
+func (i *item) isExpired(now time.Time) bool {
 	if i.expiresAt.IsZero() {
 		return false
 	}
 	return now.After(i.expiresAt)
 }
 
-// Cache is an in-memory Cache implementation.
-type Cache struct {
-	mu        sync.RWMutex
-	items     map[string]item
-	hook      *Hook
-	logger    logger.Logger
-	appName   string
-	stopCh    chan struct{}
-	closeOnce sync.Once
+// itemSize calculates the approximate memory footprint in bytes.
+func itemSize(key string, valLen int) int64 {
+	// key header (16B) + key bytes + slice header (24B) + slice bytes + item struct (48B) + map entry overhead (~48B)
+	return int64(len(key) + valLen + 136)
 }
 
-// NewLocalCache creates a new instance of LocalCache in Pure Go.
+// shard represents an isolated partition of the cache with its own read-write lock.
+type shard struct {
+	mu           sync.RWMutex
+	items        map[string]*item
+	currentBytes int64
+}
+
+// deleteKey removes a key and decrements the shard's byte footprint.
+func (s *shard) deleteKey(key string) {
+	if it, ok := s.items[key]; ok {
+		s.currentBytes -= itemSize(key, len(it.value))
+		delete(s.items, key)
+	}
+}
+
+// isOverQuota returns true if the shard exceeds either item count or byte limits.
+func (s *shard) isOverQuota(maxItems int, maxBytes int64) bool {
+	if maxItems > 0 && len(s.items) >= maxItems {
+		return true
+	}
+	if maxBytes > 0 && s.currentBytes > maxBytes {
+		return true
+	}
+	return false
+}
+
+// sweepExpiredSample iterates through up to sampleLimit items and removes any expired entries.
+func (s *shard) sweepExpiredSample(now time.Time, sampleLimit int) {
+	count := 0
+	for k, it := range s.items {
+		if it.isExpired(now) {
+			s.deleteKey(k)
+		}
+		count++
+		if count >= sampleLimit {
+			break
+		}
+	}
+}
+
+// sampleOldest finds the least recently accessed key among up to sampleLimit items.
+func (s *shard) sampleOldest(sampleLimit int) string {
+	var oldestKey string
+	var oldestTime int64 = 1<<63 - 1
+	count := 0
+
+	for k, it := range s.items {
+		access := atomic.LoadInt64(&it.lastAccessedAt)
+		if access < oldestTime {
+			oldestTime = access
+			oldestKey = k
+		}
+		count++
+		if count >= sampleLimit {
+			break
+		}
+	}
+	return oldestKey
+}
+
+// evict implements a hybrid Sampled LRU eviction strategy.
+// It first attempts to sweep expired entries; if still over capacity, it evicts
+// the least recently accessed item among random samples.
+func (s *shard) evict(now time.Time, maxItems int, maxBytes int64) {
+	if !s.isOverQuota(maxItems, maxBytes) {
+		return
+	}
+
+	const sampleLimit = 10
+	s.sweepExpiredSample(now, sampleLimit)
+
+	if !s.isOverQuota(maxItems, maxBytes) {
+		return
+	}
+
+	if oldest := s.sampleOldest(sampleLimit); oldest != "" {
+		s.deleteKey(oldest)
+	}
+}
+
+// fnv32 implements a zero-allocation inline FNV-1a 32-bit hash on string bytes.
+func fnv32(key string) uint32 {
+	var h uint32 = 2166136261
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= 16777619
+	}
+	return h
+}
+
+func roundUpPowerOfTwo(n int) int {
+	if n <= 1 {
+		return 1
+	}
+	n--
+	n |= n >> 1
+	n |= n >> 2
+	n |= n >> 4
+	n |= n >> 8
+	n |= n >> 16
+	n++
+	return n
+}
+
+// Cache is a high-performance, sharded in-memory Cache implementation with bounded memory.
+type Cache struct {
+	shards           []*shard
+	shardMask        uint32
+	maxItemsPerShard int
+	maxBytesPerShard int64
+	hook             *Hook
+	logger           logger.Logger
+	appName          string
+	stopCh           chan struct{}
+	closeOnce        sync.Once
+}
+
+// NewLocalCache creates a new instance of LocalCache in Pure Go with sharded partitions.
 // If health.Registry is provided, it automatically registers a readiness check for LocalCache.
 func NewLocalCache(
 	l logger.Logger,
@@ -54,12 +169,45 @@ func NewLocalCache(
 	ctx := context.Background()
 	appName := coreContext.AppName(ctx)
 
+	numShards := cfg.NumShards
+	if numShards <= 0 {
+		numShards = 32
+	}
+	numShards = roundUpPowerOfTwo(numShards)
+
+	shards := make([]*shard, numShards)
+	for i := 0; i < numShards; i++ {
+		shards[i] = &shard{
+			items: make(map[string]*item),
+		}
+	}
+
+	var maxItemsPerShard int
+	if cfg.MaxItems > 0 {
+		maxItemsPerShard = cfg.MaxItems / numShards
+		if maxItemsPerShard < 1 {
+			maxItemsPerShard = 1
+		}
+	}
+
+	var maxBytesPerShard int64
+	if cfg.MaxMemoryMB > 0 {
+		totalBytes := int64(cfg.MaxMemoryMB) * 1024 * 1024
+		maxBytesPerShard = totalBytes / int64(numShards)
+		if maxBytesPerShard < 1024 {
+			maxBytesPerShard = 1024
+		}
+	}
+
 	c := &Cache{
-		items:   make(map[string]item),
-		hook:    NewHook(l, cfg, appName),
-		logger:  l,
-		appName: appName,
-		stopCh:  make(chan struct{}),
+		shards:           shards,
+		shardMask:        uint32(numShards - 1),
+		maxItemsPerShard: maxItemsPerShard,
+		maxBytesPerShard: maxBytesPerShard,
+		hook:             NewHook(l, cfg, appName),
+		logger:           l,
+		appName:          appName,
+		stopCh:           make(chan struct{}),
 	}
 
 	for _, hr := range hrs {
@@ -83,6 +231,11 @@ func NewLocalCache(
 	return c, nil
 }
 
+func (c *Cache) getShard(key string) *shard {
+	return c.shards[fnv32(key)&c.shardMask]
+}
+
+// startJanitor runs periodic cleanup across shards in a staggered, non-blocking fashion.
 func (c *Cache) startJanitor(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -92,19 +245,30 @@ func (c *Cache) startJanitor(interval time.Duration) {
 		case <-c.stopCh:
 			return
 		case now := <-ticker.C:
-			c.deleteExpired(now)
+			c.sweepShards(now)
 		}
 	}
 }
 
-func (c *Cache) deleteExpired(now time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for k, it := range c.items {
-		if it.isExpired(now) {
-			delete(c.items, k)
+// sweepShards cleans expired keys sequentially across shards with CPU yields to avoid latency spikes.
+func (c *Cache) sweepShards(now time.Time) {
+	for _, s := range c.shards {
+		select {
+		case <-c.stopCh:
+			return
+		default:
 		}
+
+		s.mu.Lock()
+		for k, it := range s.items {
+			if it.isExpired(now) {
+				s.deleteKey(k)
+			}
+		}
+		s.mu.Unlock()
+
+		// Yield scheduler briefly between shards to prioritize real-time request traffic
+		runtime.Gosched()
 	}
 }
 
@@ -113,26 +277,32 @@ func (c *Cache) deleteExpired(now time.Time) {
 func (c *Cache) Get(ctx context.Context, key string) ([]byte, error) {
 	var result []byte
 	err := c.hook.Execute(ctx, "get", key, func() error {
-		c.mu.RLock()
-		it, found := c.items[key]
-		c.mu.RUnlock()
+		s := c.getShard(key)
 
+		s.mu.RLock()
+		it, found := s.items[key]
 		if !found {
+			s.mu.RUnlock()
 			return nil
 		}
 
 		now := time.Now()
 		if it.isExpired(now) {
-			c.mu.Lock()
-			if cur, ok := c.items[key]; ok && cur.isExpired(now) {
-				delete(c.items, key)
+			s.mu.RUnlock()
+			s.mu.Lock()
+			if cur, ok := s.items[key]; ok && cur.isExpired(now) {
+				s.deleteKey(key)
 			}
-			c.mu.Unlock()
+			s.mu.Unlock()
 			return nil
 		}
 
+		// Non-blocking lock-free access tracking for Sampled LRU
+		atomic.StoreInt64(&it.lastAccessedAt, now.UnixNano())
+
 		result = make([]byte, len(it.value))
 		copy(result, it.value)
+		s.mu.RUnlock()
 		return nil
 	})
 
@@ -148,17 +318,32 @@ func (c *Cache) Set(ctx context.Context, key string, value []byte, expiration ti
 		valCopy := make([]byte, len(value))
 		copy(valCopy, value)
 
+		now := time.Now()
 		var expiresAt time.Time
 		if expiration > 0 {
-			expiresAt = time.Now().Add(expiration)
+			expiresAt = now.Add(expiration)
 		}
 
-		c.mu.Lock()
-		c.items[key] = item{
-			value:     valCopy,
-			expiresAt: expiresAt,
+		s := c.getShard(key)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		// If key already exists, subtract its prior memory footprint
+		if old, exists := s.items[key]; exists {
+			s.currentBytes -= itemSize(key, len(old.value))
 		}
-		c.mu.Unlock()
+
+		// Enforce capacity bounds
+		s.evict(now, c.maxItemsPerShard, c.maxBytesPerShard)
+
+		newEntry := &item{
+			value:          valCopy,
+			expiresAt:      expiresAt,
+			lastAccessedAt: now.UnixNano(),
+		}
+		s.items[key] = newEntry
+		s.currentBytes += itemSize(key, len(valCopy))
+
 		return nil
 	})
 
@@ -184,18 +369,27 @@ func (c *Cache) SetNX(ctx context.Context, key string, value any, expiration tim
 			expiresAt = now.Add(expiration)
 		}
 
-		c.mu.Lock()
-		defer c.mu.Unlock()
+		s := c.getShard(key)
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-		if it, exists := c.items[key]; exists && !it.isExpired(now) {
+		if it, exists := s.items[key]; exists && !it.isExpired(now) {
 			stored = false
 			return nil
 		}
 
-		c.items[key] = item{
-			value:     valBytes,
-			expiresAt: expiresAt,
+		if old, exists := s.items[key]; exists {
+			s.currentBytes -= itemSize(key, len(old.value))
 		}
+
+		s.evict(now, c.maxItemsPerShard, c.maxBytesPerShard)
+
+		s.items[key] = &item{
+			value:          valBytes,
+			expiresAt:      expiresAt,
+			lastAccessedAt: now.UnixNano(),
+		}
+		s.currentBytes += itemSize(key, len(valBytes))
 		stored = true
 		return nil
 	})
@@ -211,16 +405,25 @@ func (c *Cache) SetNX(ctx context.Context, key string, value any, expiration tim
 func (c *Cache) Incr(ctx context.Context, key string) (int64, error) {
 	var newVal int64
 	err := c.hook.Execute(ctx, "incr", key, func() error {
-		c.mu.Lock()
-		defer c.mu.Unlock()
+		s := c.getShard(key)
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
 		now := time.Now()
-		it, exists := c.items[key]
+		it, exists := s.items[key]
 		if !exists || it.isExpired(now) {
-			newVal = 1
-			c.items[key] = item{
-				value: []byte("1"),
+			if exists {
+				s.currentBytes -= itemSize(key, len(it.value))
 			}
+			s.evict(now, c.maxItemsPerShard, c.maxBytesPerShard)
+
+			newVal = 1
+			valBytes := []byte("1")
+			s.items[key] = &item{
+				value:          valBytes,
+				lastAccessedAt: now.UnixNano(),
+			}
+			s.currentBytes += itemSize(key, len(valBytes))
 			return nil
 		}
 
@@ -230,10 +433,11 @@ func (c *Cache) Incr(ctx context.Context, key string) (int64, error) {
 		}
 
 		newVal = current + 1
-		c.items[key] = item{
-			value:     []byte(strconv.FormatInt(newVal, 10)),
-			expiresAt: it.expiresAt,
-		}
+		valBytes := []byte(strconv.FormatInt(newVal, 10))
+		s.currentBytes -= itemSize(key, len(it.value))
+		s.currentBytes += itemSize(key, len(valBytes))
+		it.value = valBytes
+		atomic.StoreInt64(&it.lastAccessedAt, now.UnixNano())
 		return nil
 	})
 
@@ -246,9 +450,10 @@ func (c *Cache) Incr(ctx context.Context, key string) (int64, error) {
 // Delete removes a value from the local cache.
 func (c *Cache) Delete(ctx context.Context, key string) error {
 	err := c.hook.Execute(ctx, "delete", key, func() error {
-		c.mu.Lock()
-		delete(c.items, key)
-		c.mu.Unlock()
+		s := c.getShard(key)
+		s.mu.Lock()
+		s.deleteKey(key)
+		s.mu.Unlock()
 		return nil
 	})
 
@@ -261,13 +466,15 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 // DeleteByPrefix removes all keys matching the given prefix.
 func (c *Cache) DeleteByPrefix(ctx context.Context, prefix string) error {
 	err := c.hook.Execute(ctx, "delete_by_prefix", prefix+"*", func() error {
-		c.mu.Lock()
-		for k := range c.items {
-			if strings.HasPrefix(k, prefix) {
-				delete(c.items, k)
+		for _, s := range c.shards {
+			s.mu.Lock()
+			for k := range s.items {
+				if strings.HasPrefix(k, prefix) {
+					s.deleteKey(k)
+				}
 			}
+			s.mu.Unlock()
 		}
-		c.mu.Unlock()
 		return nil
 	})
 
@@ -308,9 +515,12 @@ func (c *Cache) GetJSON(ctx context.Context, key string, target any) (bool, erro
 func (c *Cache) Close(ctx context.Context) error {
 	c.closeOnce.Do(func() {
 		close(c.stopCh)
-		c.mu.Lock()
-		c.items = make(map[string]item)
-		c.mu.Unlock()
+		for _, s := range c.shards {
+			s.mu.Lock()
+			s.items = make(map[string]*item)
+			s.currentBytes = 0
+			s.mu.Unlock()
+		}
 	})
 
 	if c.logger != nil {

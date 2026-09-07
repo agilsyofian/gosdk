@@ -369,3 +369,83 @@ func TestPureGoLifecycle(t *testing.T) {
 		t.Fatalf("close failed: %v", err)
 	}
 }
+
+func TestMaxItems_Eviction(t *testing.T) {
+	c := newTestCache(t, func(cfg *local.Config) {
+		cfg.NumShards = 2
+		cfg.MaxItems = 4 // 2 items per shard max
+	})
+	ctx := context.Background()
+
+	// Insert 10 items
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("evict_key_%d", i)
+		err := c.Set(ctx, key, []byte("val"), time.Hour)
+		if err != nil {
+			t.Fatalf("set failed for %s: %v", key, err)
+		}
+	}
+
+	// Count how many keys remain
+	count := 0
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("evict_key_%d", i)
+		val, err := c.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if val != nil {
+			count++
+		}
+	}
+
+	// Should not exceed maxItems = 4
+	if count > 4 {
+		t.Fatalf("expected at most 4 items remaining, got %d", count)
+	}
+	if count == 0 {
+		t.Fatal("expected some items to remain, got 0")
+	}
+}
+
+func TestShardingDistribution(t *testing.T) {
+	c := newTestCache(t, func(cfg *local.Config) {
+		cfg.NumShards = 16
+		cfg.MaxItems = 10000
+	})
+	ctx := context.Background()
+
+	// Insert 200 distinct keys
+	for i := 0; i < 200; i++ {
+		key := fmt.Sprintf("dist_key_%d", i)
+		_ = c.Set(ctx, key, []byte("val"), time.Hour)
+	}
+
+	// Verify all 200 keys can be retrieved
+	for i := 0; i < 200; i++ {
+		key := fmt.Sprintf("dist_key_%d", i)
+		val, err := c.Get(ctx, key)
+		if err != nil || string(val) != "val" {
+			t.Fatalf("failed to retrieve key %s: val=%v, err=%v", key, val, err)
+		}
+	}
+}
+
+func BenchmarkShardedCache_GetSet(b *testing.B) {
+	cfg := local.DefaultConfig()
+	cfg.NumShards = 32
+	c, _ := local.NewLocalCache(&mockLogger{}, cfg)
+	defer func() { _ = c.Close(context.Background()) }()
+
+	ctx := context.Background()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			i++
+			key := fmt.Sprintf("bench_key_%d", i%1000)
+			_ = c.Set(ctx, key, []byte("bench_value"), time.Minute)
+			_, _ = c.Get(ctx, key)
+		}
+	})
+}

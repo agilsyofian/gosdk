@@ -8,9 +8,13 @@ In-memory thread-safe cache backend implementing the [`cache.Cache`](../cache.go
 
 | Feature | Detail |
 |---|---|
-| Thread-safety | Synchronized with `sync.RWMutex` for high concurrency |
+| Sharded Architecture | Partitioned into $N$ shards (default: 32) to eliminate global mutex lock contention |
+| Zero Allocations | Inline FNV-1a 32-bit hashing operating directly on string bytes without heap allocations |
+| Bounded Memory | OOM prevention via configurable `MaxItems` and `MaxMemoryMB` bounds |
+| Eviction Policy | Sampled LRU eviction algorithm with expired-first sweeping |
+| Staggered Janitor | Non-blocking periodic cleanup with inter-shard CPU yields to prevent latency spikes |
+| Thread-safety | Synchronized with per-shard `sync.RWMutex` and lock-free atomic read access tracking |
 | Expiration | Per-item TTL with lazy evaluation on `Get` |
-| Background Janitor | Periodic cleanup of expired items via configurable `CleanupInterval` |
 | JSON Helpers | `SetJSON` / `GetJSON` for easy serialization/deserialization |
 | Prefix Delete | `DeleteByPrefix` for efficient namespace invalidation |
 | Atomic Operations | `Incr` and `SetNX` for lightweight counters and mutex-like operations |
@@ -45,7 +49,10 @@ func main() {
     l := logger.NewZerologLogger(logger.Config{Output: "stdout"})
 
     cfg := localcache.DefaultConfig()
-    cfg.CleanupInterval = 10 * time.Second
+    cfg.NumShards = 32
+    cfg.MaxItems = 100_000
+    cfg.MaxMemoryMB = 256
+    cfg.CleanupInterval = 5 * time.Minute
 
     cache, err := localcache.NewLocalCache(l, cfg)
     if err != nil {
@@ -63,7 +70,7 @@ func main() {
 
 ## Uber Fx Integration (Application Layer)
 
-Di level bootstrap aplikasi, registrasikan lifecycle hook Fx:
+At application bootstrap, register the Fx lifecycle hook:
 
 ```go
 fx.Provide(
@@ -89,9 +96,15 @@ fx.Provide(
 
 ```go
 type Config struct {
-    CleanupInterval time.Duration // Interval for background expired item cleanup (default: 1m)
-    Logger          struct {
-        Enabled bool // Enable detailed debug logs (default: false)
-    }
+    CleanupInterval time.Duration `mapstructure:"cleanup_interval"` // Interval for background cleanup (default: 5m)
+    NumShards       int           `mapstructure:"num_shards"`        // Number of partitions (default: 32)
+    MaxItems        int           `mapstructure:"max_items"`         // Maximum entries across all shards (default: 100,000)
+    MaxMemoryMB     int           `mapstructure:"max_memory_mb"`     // Maximum RAM footprint in MB (default: 256MB)
+    Tracing         struct {
+        Enabled bool `mapstructure:"enabled"`
+    } `mapstructure:"tracing"`
+    Logger struct {
+        Enabled bool `mapstructure:"enabled"`
+    } `mapstructure:"logger"`
 }
 ```
