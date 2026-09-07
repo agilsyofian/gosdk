@@ -63,6 +63,15 @@ All config (ports, DSNs, topic names, retry/circuit-breaker tuning) is
 in `env.yaml`. Nothing there is secret — it's a local-dev fixture, not
 production config.
 
+### Multi-Environment Configuration (`APP_ENV`)
+
+The config loader supports layered environment overrides (`v.MergeInConfig()`):
+- **Local development (default)**: `go run .` loads `env.yaml`.
+- **Staging**: `APP_ENV=staging go run .` loads `env.yaml` and overlays `env.staging.yaml`.
+- **Production**: `APP_ENV=production go run .` loads `env.yaml` and overlays `env.production.yaml`.
+
+You only need to specify the keys that differ in `env.<env>.yaml`; all other settings are automatically inherited from `env.yaml`.
+
 ## Map of the codebase
 
 ```

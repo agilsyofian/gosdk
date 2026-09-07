@@ -39,3 +39,21 @@ func TestLoadConfig_Validation(t *testing.T) {
 	assert.Error(t, err, "Should fail validation if required fields are empty")
 	assert.Contains(t, err.Error(), "required")
 }
+
+func TestLoadConfig_EnvironmentOverride(t *testing.T) {
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
+	_ = os.Chdir("../..")
+
+	stagingContent := []byte("app_version: \"2.0.0-staging\"\n")
+	err := os.WriteFile("env.staging.yaml", stagingContent, 0644)
+	assert.NoError(t, err)
+	defer os.Remove("env.staging.yaml")
+
+	t.Setenv("APP_ENV", "staging")
+
+	config, err := LoadConfig()
+	assert.NoError(t, err)
+	assert.Equal(t, "2.0.0-staging", config.AppVersion)
+	assert.Equal(t, "example", config.AppName) // preserved from env.yaml
+}

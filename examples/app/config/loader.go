@@ -12,8 +12,8 @@ import (
 func LoadConfig() (AppConfig, error) {
 	v := viper.New()
 
-	v.SetConfigName("env")
 	v.SetConfigType("yaml")
+
 	if configPath := os.Getenv("CONFIG_PATH"); configPath != "" {
 		v.AddConfigPath(configPath)
 	}
@@ -28,9 +28,26 @@ func LoadConfig() (AppConfig, error) {
 	v.AutomaticEnv()
 	v.BindEnv("app_name", "APP_NAME")
 
+	// 1. Read base config (env.yaml)
+	v.SetConfigName("env")
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return AppConfig{}, fmt.Errorf("failed to read config file: %w", err)
+		}
+	}
+
+	// 2. If APP_ENV or ENV is set (e.g. "staging", "production"), merge environment overrides
+	appEnv := strings.ToLower(os.Getenv("APP_ENV"))
+	if appEnv == "" {
+		appEnv = strings.ToLower(os.Getenv("ENV"))
+	}
+
+	if appEnv != "" && appEnv != "development" && appEnv != "local" {
+		v.SetConfigName("env." + appEnv)
+		if err := v.MergeInConfig(); err != nil {
+			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+				return AppConfig{}, fmt.Errorf("failed to merge env.%s config: %w", appEnv, err)
+			}
 		}
 	}
 
