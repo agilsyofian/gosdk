@@ -132,7 +132,7 @@ type sanitizedWriter struct {
 
 func (w *sanitizedWriter) Write(data []byte) (int, error) {
 	contentType := w.Header().Get("Content-Type")
-	if strings.HasPrefix(contentType, "text/html") || strings.HasPrefix(contentType, "application/json") {
+	if strings.HasPrefix(contentType, "text/html") {
 		safe := html.EscapeString(string(data))
 		return w.ResponseWriter.Write([]byte(safe))
 	}
