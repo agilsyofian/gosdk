@@ -27,9 +27,6 @@ var HTTP = fx.Module("server:http",
 						return nil
 					},
 					OnStop: func(ctx context.Context) error {
-						if t != nil {
-							_ = t.Shutdown(ctx)
-						}
 						return s.Shutdown(ctx)
 					},
 				})
