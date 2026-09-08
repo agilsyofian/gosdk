@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -86,7 +87,9 @@ func (m *mockLogger) Info(ctx context.Context, msg string, payload logger.LogPay
 	m.lastPayload = payload
 }
 func (m *mockLogger) Warn(ctx context.Context, msg string, payload logger.LogPayload)  {}
-func (m *mockLogger) Error(ctx context.Context, msg string, payload logger.LogPayload) {}
+func (m *mockLogger) Error(ctx context.Context, msg string, payload logger.LogPayload) {
+	m.lastPayload = payload
+}
 
 func TestHook_LogKeyAsPath(t *testing.T) {
 	mockL := &mockLogger{}
@@ -104,4 +107,47 @@ func TestHook_LogKeyAsPath(t *testing.T) {
 	if mockL.lastPayload.Method != "SET" {
 		t.Errorf("expected Method to be 'SET', got %q", mockL.lastPayload.Method)
 	}
+	if mockL.lastPayload.Status != 200 {
+		t.Errorf("expected Status to be 200, got %d", mockL.lastPayload.Status)
+	}
 }
+
+func TestHook_LogStatus_CacheMiss(t *testing.T) {
+	mockL := &mockLogger{}
+	cfg := Config{}
+	cfg.Logger.Enabled = true
+
+	hook := NewHook(mockL, cfg, "test-app")
+
+	cmd := redis.NewStringCmd(context.Background(), "get", "user:session:notfound")
+	hook.log(context.Background(), cmd, time.Now(), redis.Nil)
+
+	if mockL.lastPayload.Status != 404 {
+		t.Errorf("expected Status 404 for cache miss, got %d", mockL.lastPayload.Status)
+	}
+	if mockL.lastPayload.Path != "user:session:notfound" {
+		t.Errorf("expected Path 'user:session:notfound', got %q", mockL.lastPayload.Path)
+	}
+	if mockL.lastPayload.Response != "null" {
+		t.Errorf("expected Response 'null', got %v", mockL.lastPayload.Response)
+	}
+}
+
+func TestHook_LogStatus_RedisError(t *testing.T) {
+	mockL := &mockLogger{}
+	cfg := Config{}
+	cfg.Logger.Enabled = true
+
+	hook := NewHook(mockL, cfg, "test-app")
+
+	cmd := redis.NewStringCmd(context.Background(), "get", "user:session:broken")
+	hook.log(context.Background(), cmd, time.Now(), errors.New("dial tcp: connection refused"))
+
+	if mockL.lastPayload.Status != 500 {
+		t.Errorf("expected Status 500 for redis error, got %d", mockL.lastPayload.Status)
+	}
+	if mockL.lastPayload.Error != "dial tcp: connection refused" {
+		t.Errorf("expected Error 'dial tcp: connection refused', got %v", mockL.lastPayload.Error)
+	}
+}
+

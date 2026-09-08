@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,6 +17,10 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+type CombinedRequest struct {
+	Body string `json:"body"`
+}
 
 func Logger(l logger.Logger, appName string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -88,8 +93,8 @@ func logRPC(
 		SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 		SessionId: coreContext.SessionID(ctx),
 		Path:      ev.fullMethod,
-		Request:   marshalProto(ev.req),
-		Response:  marshalProto(ev.resp),
+		Request:   formatRequest(ev.req),
+		Response:  formatResponse(ev.resp, ev.err),
 		Duration:  time.Since(ev.start).Milliseconds(),
 	}
 
@@ -103,6 +108,51 @@ func logRPC(
 		fmt.Sprintf("GRPC %s", ev.fullMethod),
 		payload,
 	)
+}
+
+func formatRequest(req any) any {
+	if req == nil {
+		return nil
+	}
+	bodyStr := ""
+	if protoStr := marshalProto(req); protoStr != nil {
+		if s, ok := protoStr.(string); ok {
+			bodyStr = s
+		} else if b, err := json.Marshal(protoStr); err == nil {
+			bodyStr = string(b)
+		} else {
+			bodyStr = fmt.Sprint(protoStr)
+		}
+	}
+	fullRequest, err := json.Marshal(CombinedRequest{
+		Body: bodyStr,
+	})
+	if err != nil {
+		return bodyStr
+	}
+	return string(fullRequest)
+}
+
+func formatResponse(resp any, err error) any {
+	if resp != nil {
+		return marshalProto(resp)
+	}
+	if err != nil {
+		st, _ := status.FromError(err)
+		errResp := map[string]any{
+			"code":    st.Code().String(),
+			"message": st.Message(),
+		}
+		if details := st.Details(); len(details) > 0 {
+			errResp["details"] = details
+		}
+		b, err := json.Marshal(errResp)
+		if err != nil {
+			return nil
+		}
+		return string(b)
+	}
+	return nil
 }
 
 func determineLogFunc(l logger.Logger, err error) func(context.Context, string, logger.LogPayload) {

@@ -24,6 +24,35 @@ func Error(l logger.Logger, appName string, showErrorDetail bool) gin.HandlerFun
 			return
 		}
 
+		traceID := tracing.TraceID(c.Request.Context())
+		if traceID == "" {
+			if span := trace.SpanFromContext(c.Request.Context()); span.SpanContext().HasTraceID() {
+				traceID = span.SpanContext().TraceID().String()
+			}
+		}
+		if traceID == "" {
+			traceID = c.GetHeader("x-trace-id")
+		}
+		if traceID == "" {
+			traceID = c.Writer.Header().Get("x-trace-id")
+		}
+
+		sessionID := tracing.SessionID(c.Request.Context())
+		if sessionID == "" {
+			sessionID = c.GetHeader("x-session-id")
+		}
+		if sessionID == "" {
+			sessionID = c.Writer.Header().Get("x-session-id")
+		}
+
+		spanID := trace.SpanContextFromContext(c.Request.Context()).SpanID().String()
+		if spanID == "0000000000000000" {
+			spanID = c.GetHeader("x-span-id")
+		}
+		if spanID == "0000000000000000" {
+			spanID = c.Writer.Header().Get("x-span-id")
+		}
+
 		payload := logger.LogPayload{
 			Timestamp: time.Now(),
 			AppName:   appName,
@@ -31,9 +60,9 @@ func Error(l logger.Logger, appName string, showErrorDetail bool) gin.HandlerFun
 			Method:    c.Request.Method,
 			IpAddress: c.ClientIP(),
 			Metadata:  c.Request.Header,
-			TraceId:   tracing.TraceID(c.Request.Context()),
-			SpanId:    trace.SpanContextFromContext(c.Request.Context()).SpanID().String(),
-			SessionId: tracing.SessionID(c.Request.Context()),
+			TraceId:   traceID,
+			SpanId:    spanID,
+			SessionId: sessionID,
 			Path:      c.Request.URL.Path,
 			Status:    c.Writer.Status(),
 			Request:   "-",
@@ -75,6 +104,7 @@ func Error(l logger.Logger, appName string, showErrorDetail bool) gin.HandlerFun
 			resp.Result = appErr.Result
 
 			payload.Error = appErr.Error()
+			payload.Status = appErr.Status.Int()
 
 			c.JSON(appErr.Status.Int(), resp)
 			return
@@ -94,11 +124,13 @@ func Error(l logger.Logger, appName string, showErrorDetail bool) gin.HandlerFun
 			resp.Result = fields
 
 			payload.Error = fields
+			payload.Status = http.StatusBadRequest
 
 			c.JSON(http.StatusBadRequest, resp)
 			return
 		}
 
+		payload.Status = http.StatusInternalServerError
 		c.JSON(http.StatusInternalServerError, resp)
 	}
 }

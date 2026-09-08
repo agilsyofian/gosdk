@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/rs/zerolog"
 )
 
@@ -161,3 +162,34 @@ func TestZerologLogger_AppNameOverride(t *testing.T) {
 		t.Errorf("expected app_name 'my-awesome-app', got '%v'", entry["app_name"])
 	}
 }
+
+func TestZerologLogger_AutoExtractTracingFromContext(t *testing.T) {
+	var buf bytes.Buffer
+	l := &ZerologLogger{
+		logger:  zerolog.New(&buf).With().Timestamp().Logger(),
+		appName: "test-app",
+	}
+
+	ctx := context.Background()
+	ctx = tracing.WithTraceID(ctx, "trace-abc-123")
+	ctx = tracing.WithSessionID(ctx, "session-xyz-789")
+
+	// Payload without TraceId or SessionId explicitly filled in
+	l.Error(ctx, "business error", LogPayload{
+		Type:  "ERROR",
+		Error: "invalid login credentials",
+	})
+
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("failed to unmarshal log: %v", err)
+	}
+
+	if entry["trace_id"] != "trace-abc-123" {
+		t.Errorf("expected trace_id 'trace-abc-123', got '%v'", entry["trace_id"])
+	}
+	if entry["session_id"] != "session-xyz-789" {
+		t.Errorf("expected session_id 'session-xyz-789', got '%v'", entry["session_id"])
+	}
+}
+

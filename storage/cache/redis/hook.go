@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -113,12 +114,22 @@ func (h *Hook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.Process
 }
 
 func (h *Hook) log(ctx context.Context, cmd redis.Cmder, start time.Time, err error) {
+	statusCode := 200
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			statusCode = 404
+		} else {
+			statusCode = 500
+		}
+	}
+
 	payload := logger.LogPayload{
 		Timestamp: start,
 		AppName:   h.appName,
 		Type:      "STORAGE_REDIS",
 		Method:    strings.ToUpper(cmd.FullName()),
 		IpAddress: fmt.Sprintf("%v", h.config.Addrs),
+		Status:    statusCode,
 		TraceId:   coreContext.TraceID(ctx),
 		SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 		SessionId: coreContext.SessionID(ctx),
@@ -127,11 +138,11 @@ func (h *Hook) log(ctx context.Context, cmd redis.Cmder, start time.Time, err er
 		Duration:  time.Since(start).Milliseconds(),
 	}
 
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		payload.Error = err.Error()
 		h.logger.Error(ctx, fmt.Sprintf("REDIS %s", cmd.FullName()), payload)
 	} else {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			payload.Response = "null"
 		}
 		h.logger.Info(ctx, fmt.Sprintf("REDIS %s", cmd.FullName()), payload)
@@ -194,6 +205,15 @@ func formatArg(arg any) string {
 }
 
 func (h *Hook) logPipeline(ctx context.Context, cmdNames []string, start time.Time, err error) {
+	statusCode := 200
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			statusCode = 404
+		} else {
+			statusCode = 500
+		}
+	}
+
 	summary := strings.Join(cmdNames, ", ")
 	payload := logger.LogPayload{
 		Timestamp: start,
@@ -201,6 +221,7 @@ func (h *Hook) logPipeline(ctx context.Context, cmdNames []string, start time.Ti
 		Type:      "STORAGE_REDIS",
 		Method:    "PIPELINE",
 		IpAddress: fmt.Sprintf("%v", h.config.Addrs),
+		Status:    statusCode,
 		TraceId:   coreContext.TraceID(ctx),
 		SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 		SessionId: coreContext.SessionID(ctx),
@@ -209,7 +230,7 @@ func (h *Hook) logPipeline(ctx context.Context, cmdNames []string, start time.Ti
 		Duration:  time.Since(start).Milliseconds(),
 	}
 
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		payload.Error = err.Error()
 		h.logger.Error(ctx, "REDIS PIPELINE", payload)
 	} else {

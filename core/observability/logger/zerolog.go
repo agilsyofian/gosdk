@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -125,22 +126,41 @@ func (z *ZerologLogger) applyFields(ctx context.Context, event *zerolog.Event, p
 }
 
 func (z *ZerologLogger) applyTracingFields(ctx context.Context, event *zerolog.Event, payload LogPayload) {
-	if payload.TraceId != "" {
-		event.Str("trace_id", payload.TraceId)
-	} else if traceID := traceID(ctx); traceID != "" {
-		event.Str("trace_id", traceID)
+	traceIDVal := payload.TraceId
+	if traceIDVal == "" && ctx != nil {
+		traceIDVal = tracing.TraceID(ctx)
+		if traceIDVal == "" {
+			if span := trace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
+				traceIDVal = span.SpanContext().TraceID().String()
+			}
+		}
+		if traceIDVal == "" {
+			traceIDVal = traceID(ctx)
+		}
+	}
+	if traceIDVal != "" {
+		event.Str("trace_id", traceIDVal)
 	}
 
-	if payload.SessionId != "" {
-		event.Str("session_id", payload.SessionId)
-	} else if requestID := sessionID(ctx); requestID != "" {
-		event.Str("session_id", requestID)
+	sessionIDVal := payload.SessionId
+	if sessionIDVal == "" && ctx != nil {
+		sessionIDVal = tracing.SessionID(ctx)
+		if sessionIDVal == "" {
+			sessionIDVal = sessionID(ctx)
+		}
+	}
+	if sessionIDVal != "" {
+		event.Str("session_id", sessionIDVal)
 	}
 
-	if payload.SpanId != "" && payload.SpanId != "0000000000000000" {
-		event.Str("span_id", payload.SpanId)
-	} else if trace.SpanContextFromContext(ctx).SpanID().String() != "0000000000000000" {
-		event.Str("span_id", trace.SpanContextFromContext(ctx).SpanID().String())
+	spanIDVal := payload.SpanId
+	if (spanIDVal == "" || spanIDVal == "0000000000000000") && ctx != nil {
+		if span := trace.SpanFromContext(ctx); span.SpanContext().HasSpanID() {
+			spanIDVal = span.SpanContext().SpanID().String()
+		}
+	}
+	if spanIDVal != "" && spanIDVal != "0000000000000000" {
+		event.Str("span_id", spanIDVal)
 	}
 }
 

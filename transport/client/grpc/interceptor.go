@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,7 +13,11 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // MetadataTraceID and MetadataSessionID are the gRPC metadata keys
@@ -100,6 +105,10 @@ func Tracer(appName string) grpc.UnaryClientInterceptor {
 	}
 }
 
+type CombinedRequest struct {
+	Body string `json:"body"`
+}
+
 // Logger interceptor
 func Logger(l logger.Logger, appName string) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -107,30 +116,119 @@ func Logger(l logger.Logger, appName string) grpc.UnaryClientInterceptor {
 
 		err := invoker(ctx, method, req, reply, cc, opts...)
 
+		statusCode := int(status.Code(err))
+		var md metadata.MD
+		if outMD, ok := metadata.FromOutgoingContext(ctx); ok {
+			md = outMD
+		}
+
 		payload := logger.LogPayload{
 			Timestamp: start,
 			AppName:   appName,
 			Type:      "INTEGRATION",
-			Method:    method,
+			Method:    "GRPC",
+			Status:    statusCode,
+			Metadata:  md,
 			TraceId:   coreContext.TraceID(ctx),
 			SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 			SessionId: coreContext.SessionID(ctx),
 			Path:      method,
-			Request:   fmt.Sprintf("%+v", req),
+			Request:   formatRequest(req),
+			Response:  formatResponse(reply, err),
 			Duration:  time.Since(start).Milliseconds(),
 		}
 
 		if err != nil {
 			payload.Error = err.Error()
-			l.Error(ctx, fmt.Sprintf("GRPC CLIENT %s", method), payload)
+			logFunc := determineLogFunc(l, err)
+			logFunc(ctx, fmt.Sprintf("GRPC CLIENT %s", method), payload)
 			return err
 		}
 
-		payload.Response = fmt.Sprintf("%+v", reply)
 		l.Info(ctx, fmt.Sprintf("GRPC CLIENT %s", method), payload)
-
 		return nil
 	}
+}
+
+func formatRequest(req any) any {
+	if req == nil {
+		return nil
+	}
+	bodyStr := ""
+	if protoStr := marshalProto(req); protoStr != nil {
+		if s, ok := protoStr.(string); ok {
+			bodyStr = s
+		} else if b, err := json.Marshal(protoStr); err == nil {
+			bodyStr = string(b)
+		} else {
+			bodyStr = fmt.Sprint(protoStr)
+		}
+	}
+	fullRequest, err := json.Marshal(CombinedRequest{
+		Body: bodyStr,
+	})
+	if err != nil {
+		return bodyStr
+	}
+	return string(fullRequest)
+}
+
+func formatResponse(reply any, err error) any {
+	if reply != nil && err == nil {
+		return marshalProto(reply)
+	}
+	if err != nil {
+		st, _ := status.FromError(err)
+		errResp := map[string]any{
+			"code":    st.Code().String(),
+			"message": st.Message(),
+		}
+		if details := st.Details(); len(details) > 0 {
+			errResp["details"] = details
+		}
+		b, err := json.Marshal(errResp)
+		if err != nil {
+			return nil
+		}
+		return string(b)
+	}
+	return nil
+}
+
+func determineLogFunc(l logger.Logger, err error) func(context.Context, string, logger.LogPayload) {
+	if err == nil {
+		return l.Info
+	}
+	switch status.Code(err) {
+	case codes.InvalidArgument,
+		codes.NotFound,
+		codes.AlreadyExists,
+		codes.PermissionDenied,
+		codes.Unauthenticated,
+		codes.ResourceExhausted,
+		codes.FailedPrecondition:
+		return l.Warn
+	default:
+		return l.Error
+	}
+}
+
+func marshalProto(m any) any {
+	if m == nil {
+		return nil
+	}
+	if msg, ok := m.(proto.Message); ok {
+		opts := protojson.MarshalOptions{
+			UseProtoNames:   true,
+			EmitUnpopulated: true,
+		}
+		b, err := opts.Marshal(msg)
+		if err != nil {
+			return m
+		}
+		return string(b)
+	}
+	return m
 }
 
 // TokenProvider resolves a token for outgoing requests.

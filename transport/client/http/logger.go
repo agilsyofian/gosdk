@@ -51,6 +51,13 @@ func Logger(l logger.Logger, appName string) Middleware {
 
 			if err != nil {
 				payload.Error = err.Error()
+				errResp := map[string]any{
+					"code":    "CLIENT_ERROR",
+					"message": err.Error(),
+				}
+				if b, mErr := json.Marshal(errResp); mErr == nil {
+					payload.Response = string(b)
+				}
 				l.Error(ctx, fmt.Sprintf("CLIENT %s %s", req.Method, req.URL.Path), payload)
 				return resp, err
 			}
@@ -59,7 +66,14 @@ func Logger(l logger.Logger, appName string) Middleware {
 			payload.Status = resp.StatusCode
 			payload.Response = string(resBody)
 
-			l.Info(
+			logFunc := l.Info
+			if payload.Status >= 500 {
+				logFunc = l.Error
+			} else if payload.Status >= 400 {
+				logFunc = l.Warn
+			}
+
+			logFunc(
 				ctx,
 				fmt.Sprintf("CLIENT %s %s", req.Method, req.URL.Path),
 				payload,

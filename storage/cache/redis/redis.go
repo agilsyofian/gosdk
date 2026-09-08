@@ -85,6 +85,7 @@ func (c *Cache) Connect(ctx context.Context) error {
 			Method:    "START",
 			IpAddress: fmt.Sprintf("%v", c.cfg.Addrs),
 			AppName:   c.appName,
+			Status:    200,
 		})
 	}
 	return nil

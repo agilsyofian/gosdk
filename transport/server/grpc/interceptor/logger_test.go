@@ -152,3 +152,32 @@ func TestLoggerStream_Error(t *testing.T) {
 	assert.Equal(t, int(codes.ResourceExhausted), mockLog.lastPayload.Status)
 	assert.Equal(t, "rpc error: code = ResourceExhausted desc = quota exceeded", mockLog.lastPayload.Error)
 }
+
+func TestLoggerInterceptor_Unauthenticated_FormatLikeHTTP(t *testing.T) {
+	mockLog := &interceptorTestLogger{}
+	interceptor := Logger(mockLog, "test-app")
+
+	ctx := context.Background()
+	info := &grpc.UnaryServerInfo{FullMethod: "/user.ServiceUser/GetUser"}
+	unauthErr := status.Error(codes.Unauthenticated, "authentication required")
+	handler := func(ctx context.Context, req any) (any, error) {
+		return nil, unauthErr
+	}
+
+	reqPayload := map[string]string{"username": "demo@example.com"}
+	_, err := interceptor(ctx, reqPayload, info, handler)
+	assert.Error(t, err)
+
+	// Check Request format: must be JSON with {"body": ...}
+	reqStr, ok := mockLog.lastPayload.Request.(string)
+	assert.True(t, ok)
+	assert.Contains(t, reqStr, `"body":`)
+	assert.Contains(t, reqStr, "demo@example.com")
+
+	// Check Response format: must be JSON with {"code": "Unauthenticated", "message": ...}
+	respStr, ok := mockLog.lastPayload.Response.(string)
+	assert.True(t, ok)
+	assert.Contains(t, respStr, `"code":"Unauthenticated"`)
+	assert.Contains(t, respStr, `"message":"authentication required"`)
+}
+

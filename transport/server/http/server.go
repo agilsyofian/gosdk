@@ -73,13 +73,7 @@ func NewServer(
 		}))
 	}
 
-	// 2. Recovery Middleware (Catch panics & format standardized error response)
-	engine.Use(
-		middleware.Error(l, appName, cfg.ShowErrorDetail),
-		middleware.Recovery(l, appName),
-	)
-
-	// 3. Tracer Middleware (Extract OpenTelemetry trace context)
+	// 2. Tracer Middleware (Extract OpenTelemetry trace context)
 	var otelOpts []otelgin.Option
 	if t != nil && t.TracerProvider() != nil {
 		otelOpts = append(otelOpts, otelgin.WithTracerProvider(t.TracerProvider()))
@@ -89,8 +83,14 @@ func NewServer(
 		middleware.Tracer(appName),
 	)
 
-	// 4. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
+	// 3. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
 	engine.Use(middleware.Metadata(cfg.Metadata))
+
+	// 4. Recovery & Error Middleware (Catch panics & format standardized error response)
+	engine.Use(
+		middleware.Error(l, appName, cfg.ShowErrorDetail),
+		middleware.Recovery(l, appName),
+	)
 
 	// 5. Block Method Override (Block X-HTTP-Method-Override & query _method)
 	if !cfg.DisableBlockMethodOverride {
