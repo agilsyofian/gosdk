@@ -110,7 +110,7 @@ func (i *Interceptor) RequirePermission(ctx context.Context, permission string) 
 func mapError(err error) error {
 	switch {
 	case errors.Is(err, security.ErrForbidden):
-		return status.Error(codes.PermissionDenied, "you do not have permission to perform this action")
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, security.ErrUnauthenticated),
 		errors.Is(err, security.ErrInvalidCredential),
 		errors.Is(err, security.ErrUnsupportedCredential),
@@ -118,8 +118,8 @@ func mapError(err error) error {
 		errors.Is(err, security.ErrSessionExpired),
 		errors.Is(err, security.ErrConflictingCredential),
 		errors.Is(err, security.ErrNoCredential):
-		return status.Error(codes.Unauthenticated, "authentication required")
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
-		return status.Error(codes.Unauthenticated, "authentication required")
+		return status.Error(codes.Unauthenticated, err.Error())
 	}
 }

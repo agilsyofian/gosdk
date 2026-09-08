@@ -109,6 +109,10 @@ type CombinedRequest struct {
 	Body string `json:"body"`
 }
 
+type CombinedResponse struct {
+	Body string `json:"body"`
+}
+
 // Logger interceptor
 func Logger(l logger.Logger, appName string) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -174,10 +178,18 @@ func formatRequest(req any) any {
 }
 
 func formatResponse(reply any, err error) any {
+	bodyStr := ""
 	if reply != nil && err == nil {
-		return marshalProto(reply)
-	}
-	if err != nil {
+		if protoStr := marshalProto(reply); protoStr != nil {
+			if s, ok := protoStr.(string); ok {
+				bodyStr = s
+			} else if b, err := json.Marshal(protoStr); err == nil {
+				bodyStr = string(b)
+			} else {
+				bodyStr = fmt.Sprint(protoStr)
+			}
+		}
+	} else if err != nil {
 		st, _ := status.FromError(err)
 		errResp := map[string]any{
 			"code":    st.Code().String(),
@@ -186,13 +198,20 @@ func formatResponse(reply any, err error) any {
 		if details := st.Details(); len(details) > 0 {
 			errResp["details"] = details
 		}
-		b, err := json.Marshal(errResp)
-		if err != nil {
-			return nil
+		if b, err := json.Marshal(errResp); err == nil {
+			bodyStr = string(b)
 		}
-		return string(b)
 	}
-	return nil
+	if bodyStr == "" && reply == nil && err == nil {
+		return nil
+	}
+	fullResponse, err := json.Marshal(CombinedResponse{
+		Body: bodyStr,
+	})
+	if err != nil {
+		return bodyStr
+	}
+	return string(fullResponse)
 }
 
 func determineLogFunc(l logger.Logger, err error) func(context.Context, string, logger.LogPayload) {

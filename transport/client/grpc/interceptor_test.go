@@ -136,7 +136,8 @@ func TestClientLogger_Unauthenticated(t *testing.T) {
 
 	respStr, ok := mockL.lastPayload.Response.(string)
 	assert.True(t, ok)
-	assert.Contains(t, respStr, `"code":"Unauthenticated"`)
-	assert.Contains(t, respStr, `"message":"client unauthenticated"`)
+	assert.Contains(t, respStr, `"body":`)
+	assert.Contains(t, respStr, "Unauthenticated")
+	assert.Contains(t, respStr, "client unauthenticated")
 }
 

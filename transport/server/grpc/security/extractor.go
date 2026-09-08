@@ -41,13 +41,6 @@ func (c Config) apiKeyMetadataKey() string {
 	return "x-api-key"
 }
 
-func (c Config) sessionMetadataKey() string {
-	if c.SessionMetadataKey != "" {
-		return c.SessionMetadataKey
-	}
-	return "session-id"
-}
-
 func (c Config) allows(t security.CredentialType) bool {
 	if len(c.AllowedTypes) == 0 {
 		return true
@@ -78,8 +71,10 @@ type extracted struct {
 func extractCredential(md metadata.MD, cfg Config) (sessionID string, credential *security.Credential, err error) {
 	var candidates []extracted
 
-	if v := firstValue(md, cfg.sessionMetadataKey()); v != "" {
-		candidates = append(candidates, extracted{sessionID: v})
+	if cfg.SessionMetadataKey != "" {
+		if v := firstValue(md, cfg.SessionMetadataKey); v != "" {
+			candidates = append(candidates, extracted{sessionID: v})
+		}
 	}
 
 	if authHeader := firstValue(md, "authorization"); authHeader != "" {

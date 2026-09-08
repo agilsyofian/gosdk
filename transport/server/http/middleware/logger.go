@@ -21,6 +21,10 @@ type CombinedRequest struct {
 	Query map[string]string `json:"query"`
 }
 
+type CombinedResponse struct {
+	Body string `json:"body"`
+}
+
 // RouteMatcher matches request paths against exact, prefix, and regex patterns.
 type RouteMatcher struct {
 	patterns []string
@@ -116,6 +120,10 @@ func Logger(l logger.Logger, appName string, excludeRoutes ...string) gin.Handle
 
 		c.Next()
 
+		fullResponse, _ := json.Marshal(CombinedResponse{
+			Body: resBody.body.String(),
+		})
+
 		payload := logger.LogPayload{
 			Timestamp: start,
 			AppName:   appName,
@@ -129,7 +137,7 @@ func Logger(l logger.Logger, appName string, excludeRoutes ...string) gin.Handle
 			Path:      c.Request.URL.Path,
 			Status:    c.Writer.Status(),
 			Request:   string(fullRequest),
-			Response:  resBody.body.String(),
+			Response:  string(fullResponse),
 			Duration:  time.Since(start).Milliseconds(),
 		}
 
@@ -153,9 +161,14 @@ type bodyLogWriter struct {
 	body *bytes.Buffer
 }
 
-func (w bodyLogWriter) Write(b []byte) (int, error) {
+func (w *bodyLogWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
+}
+
+func (w *bodyLogWriter) WriteString(s string) (int, error) {
+	w.body.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
 }
 
 // captureRequestBody reads and resets the request body for further use.

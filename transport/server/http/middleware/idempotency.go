@@ -222,9 +222,13 @@ func executeAndRecord(c *gin.Context) (*idempotency.Record, error) {
 	recorder := captureResponseBody(c)
 	c.Next()
 
+	if len(c.Errors) > 0 {
+		return nil, nil // Do not cache error responses
+	}
+
 	status := c.Writer.Status()
-	if status >= 500 {
-		return nil, nil // Do not cache 5xx server panics/errors
+	if status >= 400 {
+		return nil, nil // Do not cache 4xx client errors or 5xx server errors
 	}
 
 	headers := make(map[string]string)

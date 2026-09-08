@@ -120,6 +120,17 @@ func TestFilterSensitiveData(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "JSON string body with sensitive fields (CombinedRequest format)",
+			input: map[string]any{
+				"body":  `{"username":"demo@example.com","password":"supersecretpassword"}`,
+				"query": nil,
+			},
+			expected: map[string]any{
+				"body":  `{"password":"****","username":"demo@example.com"}`,
+				"query": nil,
+			},
+		},
 	}
 
 	for _, tt := range tests {

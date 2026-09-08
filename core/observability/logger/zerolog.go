@@ -309,6 +309,17 @@ func processSlice(s []any, filterParams []string, maxLength int) {
 func formatValue(val any, filterParams []string, maxLength int) any {
 	switch sv := val.(type) {
 	case string:
+		trimmed := strings.TrimSpace(sv)
+		if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+			(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+			var nested any
+			if err := json.Unmarshal([]byte(trimmed), &nested); err == nil {
+				processValue(nested, filterParams, maxLength)
+				if b, err := json.Marshal(nested); err == nil {
+					return string(b)
+				}
+			}
+		}
 		if len(sv) > maxLength {
 			return sv[:maxLength] + "..."
 		}

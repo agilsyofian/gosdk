@@ -128,7 +128,7 @@ func TestGrpcHandler_ConfigVerificationFromEnvYaml(t *testing.T) {
 	assert.False(t, grpcCfg.Security.EnableBasic)
 	assert.True(t, grpcCfg.Security.EnableAPIKey)
 	assert.Equal(t, "x-api-key", grpcCfg.Security.APIKeyMetadataKey)
-	assert.Equal(t, "x-session-id", grpcCfg.Security.SessionMetadataKey)
+	assert.Empty(t, grpcCfg.Security.SessionMetadataKey)
 }
 
 func TestGrpcHandler_FullInvocationWithSecurityAndHealth(t *testing.T) {

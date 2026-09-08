@@ -169,3 +169,41 @@ func TestRouteMatcher(t *testing.T) {
 	assert.False(t, rm.Matches("/v1/metrics/extra"))
 	assert.False(t, rm.Matches("/shopping"))
 }
+
+func TestLogger_CapturesErrorMiddlewareResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	spy := &spyLogger{}
+	router := gin.New()
+	// Pipeline order: Logger first, then Error middleware
+	router.Use(middleware.Logger(spy, "test-app"))
+	router.Use(middleware.Error(spy, "test-app", true))
+
+	router.POST("/fail", func(c *gin.Context) {
+		_ = c.Error(gin.Error{
+			Err:  assert.AnError,
+			Type: gin.ErrorTypePublic,
+		})
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/fail", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	entries := spy.getEntries()
+	// entries[0] from Error middleware, entries[1] from Logger
+	var transportEntry *logEntry
+	for i := range entries {
+		if entries[i].payload.Type == "TRANSPORT" {
+			transportEntry = &entries[i]
+			break
+		}
+	}
+
+	assert.NotNil(t, transportEntry)
+	assert.Equal(t, http.StatusInternalServerError, transportEntry.payload.Status)
+	assert.Contains(t, transportEntry.payload.Response, `"body":`)
+	assert.Contains(t, transportEntry.payload.Response, assert.AnError.Error())
+}

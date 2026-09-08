@@ -174,10 +174,11 @@ func TestLoggerInterceptor_Unauthenticated_FormatLikeHTTP(t *testing.T) {
 	assert.Contains(t, reqStr, `"body":`)
 	assert.Contains(t, reqStr, "demo@example.com")
 
-	// Check Response format: must be JSON with {"code": "Unauthenticated", "message": ...}
+	// Check Response format: must be JSON with {"body": ...} containing code and message
 	respStr, ok := mockLog.lastPayload.Response.(string)
 	assert.True(t, ok)
-	assert.Contains(t, respStr, `"code":"Unauthenticated"`)
-	assert.Contains(t, respStr, `"message":"authentication required"`)
+	assert.Contains(t, respStr, `"body":`)
+	assert.Contains(t, respStr, "Unauthenticated")
+	assert.Contains(t, respStr, "authentication required")
 }
 

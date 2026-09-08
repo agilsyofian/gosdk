@@ -64,7 +64,7 @@ func TestHTTPClientLogger_Success(t *testing.T) {
 	assert.Equal(t, http.MethodPost, mockL.lastPayload.Method)
 	assert.Contains(t, mockL.lastPayload.Request.(string), `"body":"{\"name\":\"test\"}"`)
 	assert.Contains(t, mockL.lastPayload.Request.(string), `"query":{"page":"1"}`)
-	assert.Equal(t, `{"status":"ok"}`, mockL.lastPayload.Response)
+	assert.Contains(t, mockL.lastPayload.Response.(string), `"body":"{\"status\":\"ok\"}"`)
 }
 
 func TestHTTPClientLogger_Unauthorized_Warn(t *testing.T) {
@@ -85,7 +85,7 @@ func TestHTTPClientLogger_Unauthorized_Warn(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, "warn", mockL.lastLevel)
 	assert.Equal(t, http.StatusUnauthorized, mockL.lastPayload.Status)
-	assert.Equal(t, `{"error":"unauthorized"}`, mockL.lastPayload.Response)
+	assert.Contains(t, mockL.lastPayload.Response.(string), `"body":"{\"error\":\"unauthorized\"}"`)
 }
 
 func TestHTTPClientLogger_NetworkError(t *testing.T) {
@@ -104,6 +104,7 @@ func TestHTTPClientLogger_NetworkError(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Equal(t, "error", mockL.lastLevel)
 	assert.Equal(t, "connection refused", mockL.lastPayload.Error)
-	assert.Contains(t, mockL.lastPayload.Response.(string), `"code":"CLIENT_ERROR"`)
-	assert.Contains(t, mockL.lastPayload.Response.(string), `"message":"connection refused"`)
+	assert.Contains(t, mockL.lastPayload.Response.(string), `"body":`)
+	assert.Contains(t, mockL.lastPayload.Response.(string), "CLIENT_ERROR")
+	assert.Contains(t, mockL.lastPayload.Response.(string), "connection refused")
 }

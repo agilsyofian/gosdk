@@ -86,23 +86,26 @@ func NewServer(
 	// 3. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
 	engine.Use(middleware.Metadata(cfg.Metadata))
 
-	// 4. Recovery & Error Middleware (Catch panics & format standardized error response)
+	// 4. Logger Middleware (Structured logging with dynamic route exclusions)
+	engine.Use(middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...))
+
+	// 5. Recovery & Error Middleware (Catch panics & format standardized error response)
 	engine.Use(
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(l, appName),
 	)
 
-	// 5. Block Method Override (Block X-HTTP-Method-Override & query _method)
+	// 6. Block Method Override (Block X-HTTP-Method-Override & query _method)
 	if !cfg.DisableBlockMethodOverride {
 		engine.Use(middleware.BlockMethodOverride(appName))
 	}
 
-	// 6. Block Special Characters (Scan for XSS / SQLi in JSON string payloads)
+	// 7. Block Special Characters (Scan for XSS / SQLi in JSON string payloads)
 	if !cfg.DisableBlockSpecialChars {
 		engine.Use(middleware.BlockJSONSpecialChars(appName, cfg.AllowedSpecialCharsRegex))
 	}
 
-	// 7. Security Headers (Inject HSTS, CSP, X-Frame-Options, Nosniff, Cache-Control)
+	// 8. Security Headers (Inject HSTS, CSP, X-Frame-Options, Nosniff, Cache-Control)
 	engine.Use(middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
 		Disabled:              cfg.SecurityHeaders.Disabled,
 		HSTSMaxAge:            cfg.SecurityHeaders.HSTSMaxAge,
@@ -114,9 +117,6 @@ func NewServer(
 		DisableNoCache:        cfg.SecurityHeaders.DisableNoCache,
 		SanitizeResponse:      cfg.SecurityHeaders.SanitizeResponse,
 	}))
-
-	// 8. Logger Middleware (Structured logging with dynamic route exclusions)
-	engine.Use(middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...))
 
 	basePath := normalizeBasePath(cfg.BasePath)
 	var baseRouter gin.IRouter = engine

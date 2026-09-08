@@ -20,6 +20,10 @@ type CombinedRequest struct {
 	Query map[string]string `json:"query"`
 }
 
+type CombinedResponse struct {
+	Body string `json:"body"`
+}
+
 func Logger(l logger.Logger, appName string) Middleware {
 	return func(next RoundTripper) RoundTripper {
 		return func(ctx context.Context, req *http.Request) (*http.Response, error) {
@@ -55,16 +59,21 @@ func Logger(l logger.Logger, appName string) Middleware {
 					"code":    "CLIENT_ERROR",
 					"message": err.Error(),
 				}
-				if b, mErr := json.Marshal(errResp); mErr == nil {
-					payload.Response = string(b)
-				}
+				b, _ := json.Marshal(errResp)
+				fullResponse, _ := json.Marshal(CombinedResponse{
+					Body: string(b),
+				})
+				payload.Response = string(fullResponse)
 				l.Error(ctx, fmt.Sprintf("CLIENT %s %s", req.Method, req.URL.Path), payload)
 				return resp, err
 			}
 
 			resBody := captureResponseBody(resp)
 			payload.Status = resp.StatusCode
-			payload.Response = string(resBody)
+			fullResponse, _ := json.Marshal(CombinedResponse{
+				Body: string(resBody),
+			})
+			payload.Response = string(fullResponse)
 
 			logFunc := l.Info
 			if payload.Status >= 500 {
