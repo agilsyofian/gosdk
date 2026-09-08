@@ -122,7 +122,7 @@ func (h *Hook) log(ctx context.Context, cmd redis.Cmder, start time.Time, err er
 		TraceId:   coreContext.TraceID(ctx),
 		SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 		SessionId: coreContext.SessionID(ctx),
-		Path:      cmd.FullName(),
+		Path:      extractRedisKey(cmd),
 		Request:   cmd.String(),
 		Duration:  time.Since(start).Milliseconds(),
 	}
@@ -135,6 +135,61 @@ func (h *Hook) log(ctx context.Context, cmd redis.Cmder, start time.Time, err er
 			payload.Response = "null"
 		}
 		h.logger.Info(ctx, fmt.Sprintf("REDIS %s", cmd.FullName()), payload)
+	}
+}
+
+func extractRedisKey(cmd redis.Cmder) string {
+	args := cmd.Args()
+	if len(args) <= 1 {
+		return cmd.FullName()
+	}
+
+	cmdName := strings.ToLower(cmd.Name())
+	switch cmdName {
+	case "ping", "echo", "select", "auth", "hello", "quit":
+		return cmd.FullName()
+	case "client", "config", "cluster", "info", "slowlog", "command", "time":
+		return cmd.FullName()
+	}
+
+	switch cmdName {
+	case "mget", "del", "unlink", "exists":
+		var keys []string
+		for _, arg := range args[1:] {
+			if k := formatArg(arg); k != "" {
+				keys = append(keys, k)
+			}
+		}
+		if len(keys) > 0 {
+			return strings.Join(keys, ", ")
+		}
+	case "mset":
+		var keys []string
+		for i := 1; i < len(args); i += 2 {
+			if k := formatArg(args[i]); k != "" {
+				keys = append(keys, k)
+			}
+		}
+		if len(keys) > 0 {
+			return strings.Join(keys, ", ")
+		}
+	default:
+		if k := formatArg(args[1]); k != "" {
+			return k
+		}
+	}
+
+	return cmd.FullName()
+}
+
+func formatArg(arg any) string {
+	switch v := arg.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		return fmt.Sprint(v)
 	}
 }
 
