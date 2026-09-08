@@ -3,6 +3,7 @@ module github.com/agilsyofian/gosdk/core/observability
 go 1.26.8
 
 require (
+	github.com/prometheus/client_golang v1.21.1
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.46.0

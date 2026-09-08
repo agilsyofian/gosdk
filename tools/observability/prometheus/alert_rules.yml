@@ -1,0 +1,52 @@
+groups:
+  - name: gosdk_service_alerts
+    rules:
+      # Alert when service instance is down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service instance {{ $labels.instance }} is down"
+          description: "Target {{ $labels.job }} at {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      # Alert when HTTP 5xx error rate exceeds 5%
+      - alert: HighHttp5xxErrorRate
+        expr: (sum(rate({__name__=~"(.*_)?http_requests_total", status=~"5.."}[2m])) / sum(rate({__name__=~"(.*_)?http_requests_total"}[2m])) * 100) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate on {{ $labels.job }}"
+          description: "HTTP 5xx error rate is currently {{ $value | printf \"%.2f\" }}% (threshold: > 5%) over the last 2 minutes."
+
+      # Alert when HTTP P95 latency exceeds 1 second
+      - alert: HighHttpLatency
+        expr: histogram_quantile(0.95, sum(rate({__name__=~"(.*_)?http_request_duration_seconds_bucket"}[2m])) by (le)) > 1.0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP P95 latency on {{ $labels.job }}"
+          description: "HTTP P95 latency is {{ $value | printf \"%.3f\" }}s (threshold: > 1.0s) for more than 2 minutes."
+
+      # Alert when heap memory exceeds 500MB
+      - alert: HighMemoryUsage
+        expr: go_memstats_alloc_bytes > 524288000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected on {{ $labels.instance }}"
+          description: "Allocated heap memory is {{ $value | humanize1024 }}B (threshold: > 500MB) for more than 3 minutes."
+
+      # Alert when goroutines exceed 2000
+      - alert: HighGoroutineCount
+        expr: go_goroutines > 2000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of goroutines on {{ $labels.instance }}"
+          description: "Goroutine count has reached {{ $value }} (threshold: > 2000), potential goroutine leak."

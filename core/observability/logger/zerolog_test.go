@@ -153,7 +153,7 @@ func TestZerologLogger_AppNameOverride(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := DefaultConfig()
 	cfg.AppName = "my-awesome-app"
-	
+
 	l := &ZerologLogger{
 		logger:  zerolog.New(&buf).With().Timestamp().Logger(),
 		appName: cfg.AppName,
@@ -204,3 +204,27 @@ func TestZerologLogger_AutoExtractTracingFromContext(t *testing.T) {
 	}
 }
 
+func TestZerologLogger_DefaultTypeAndMethodConsole(t *testing.T) {
+	var buf bytes.Buffer
+	l := &ZerologLogger{
+		logger:  zerolog.New(&buf).With().Timestamp().Logger(),
+		appName: "test-app",
+	}
+
+	ctx := context.Background()
+
+	// Empty Type and Method in LogPayload
+	l.Info(ctx, "notification: push simulated", LogPayload{}.WithMetadata("userId", "user-123"))
+
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("failed to unmarshal log: %v", err)
+	}
+
+	if entry["type"] != "CONSOLE" {
+		t.Errorf("expected type 'CONSOLE', got '%v'", entry["type"])
+	}
+	if entry["method"] != "CONSOLE" {
+		t.Errorf("expected method 'CONSOLE', got '%v'", entry["method"])
+	}
+}

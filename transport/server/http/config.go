@@ -81,10 +81,11 @@ type CorsConfig struct {
 }
 
 type ActuatorConfig struct {
-	Enabled       bool   `mapstructure:"enabled"`
-	Path          string `mapstructure:"path"`
-	HealthPath    string `mapstructure:"health_path"`
-	LivenessPath  string `mapstructure:"liveness_path"`
-	ReadinessPath string `mapstructure:"readiness_path"`
-	InfoPath      string `mapstructure:"info_path"`
+	Enabled        bool   `mapstructure:"enabled"`
+	Path           string `mapstructure:"path"`
+	HealthPath     string `mapstructure:"health_path"`
+	LivenessPath   string `mapstructure:"liveness_path"`
+	ReadinessPath  string `mapstructure:"readiness_path"`
+	InfoPath       string `mapstructure:"info_path"`
+	PrometheusPath string `mapstructure:"prometheus_path"`
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/metrics"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
 	securityCore "github.com/agilsyofian/gosdk/security"
 	"github.com/agilsyofian/gosdk/transport/server/http/middleware"
@@ -30,6 +31,7 @@ type Server struct {
 	httpServer         *http.Server
 	logger             logger.Logger
 	tracing            *tracing.Tracing
+	metrics            *metrics.Metrics
 	engine             *gin.Engine
 	baseRouter         gin.IRouter
 	basePath           string
@@ -50,9 +52,20 @@ func NewServer(
 	cfg Config,
 	t *tracing.Tracing,
 	hr health.Registry,
+	m ...*metrics.Metrics,
 ) *Server {
 	if hr == nil {
 		hr = health.NewRegistry()
+	}
+
+	var metricInstance *metrics.Metrics
+	if len(m) > 0 && m[0] != nil {
+		metricInstance = m[0]
+	} else {
+		metricInstance = metrics.New(metrics.Config{
+			Enabled:   true,
+			Namespace: appName,
+		})
 	}
 
 	if cfg.Mode != "" {
@@ -83,29 +96,40 @@ func NewServer(
 		middleware.Tracer(appName),
 	)
 
-	// 3. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
+	// 3. Metrics Middleware (RED metrics: rate, errors, duration, in-flight)
+	if metricInstance != nil {
+		var metricsExcludes []string
+		metricsExcludes = append(metricsExcludes, cfg.LoggerExcludeRoutes...)
+		if cfg.Actuator.Enabled {
+			actuatorPath := defaultIfEmpty(cfg.Actuator.Path, "/actuator")
+			metricsExcludes = append(metricsExcludes, actuatorPath)
+		}
+		engine.Use(middleware.Metrics(metricInstance, metricsExcludes...))
+	}
+
+	// 4. Metadata Middleware (Extract Client IP, Device, Session, & Request IDs)
 	engine.Use(middleware.Metadata(cfg.Metadata))
 
-	// 4. Logger Middleware (Structured logging with dynamic route exclusions)
+	// 5. Logger Middleware (Structured logging with dynamic route exclusions)
 	engine.Use(middleware.Logger(l, appName, cfg.LoggerExcludeRoutes...))
 
-	// 5. Recovery & Error Middleware (Catch panics & format standardized error response)
+	// 6. Recovery & Error Middleware (Catch panics & format standardized error response)
 	engine.Use(
 		middleware.Error(l, appName, cfg.ShowErrorDetail),
 		middleware.Recovery(l, appName),
 	)
 
-	// 6. Block Method Override (Block X-HTTP-Method-Override & query _method)
+	// 7. Block Method Override (Block X-HTTP-Method-Override & query _method)
 	if !cfg.DisableBlockMethodOverride {
 		engine.Use(middleware.BlockMethodOverride(appName))
 	}
 
-	// 7. Block Special Characters (Scan for XSS / SQLi in JSON string payloads)
+	// 8. Block Special Characters (Scan for XSS / SQLi in JSON string payloads)
 	if !cfg.DisableBlockSpecialChars {
 		engine.Use(middleware.BlockJSONSpecialChars(appName, cfg.AllowedSpecialCharsRegex))
 	}
 
-	// 8. Security Headers (Inject HSTS, CSP, X-Frame-Options, Nosniff, Cache-Control)
+	// 9. Security Headers (Inject HSTS, CSP, X-Frame-Options, Nosniff, Cache-Control)
 	engine.Use(middleware.SecurityHeaders(middleware.SecurityHeadersConfig{
 		Disabled:              cfg.SecurityHeaders.Disabled,
 		HSTSMaxAge:            cfg.SecurityHeaders.HSTSMaxAge,
@@ -131,7 +155,7 @@ func NewServer(
 	var s *Server
 
 	if cfg.Actuator.Enabled {
-		setupActuator(baseRouter, cfg.Actuator, hr, appName, cfg.Mode, func() bool {
+		setupActuator(baseRouter, cfg.Actuator, hr, metricInstance, appName, cfg.Mode, func() bool {
 			return s != nil && s.inGracefulShutdown.Load()
 		})
 	}
@@ -154,6 +178,7 @@ func NewServer(
 		httpServer:      httpServer,
 		logger:          l,
 		tracing:         t,
+		metrics:         metricInstance,
 		engine:          engine,
 		baseRouter:      baseRouter,
 		basePath:        basePath,
@@ -170,6 +195,11 @@ func NewServer(
 // Tracing returns the tracing instance associated with this server.
 func (s *Server) Tracing() *tracing.Tracing {
 	return s.tracing
+}
+
+// Metrics returns the metrics instance associated with this server.
+func (s *Server) Metrics() *metrics.Metrics {
+	return s.metrics
 }
 
 func normalizeBasePath(raw string) string {
@@ -193,7 +223,7 @@ func setupSwagger(engine *gin.Engine, baseRouter gin.IRouter, basePath string) {
 	engine.GET("/swagger/*any", swaggerHandler)
 }
 
-func setupActuator(router gin.IRouter, cfg ActuatorConfig, hr health.Registry, appName, mode string, isShuttingDown func() bool) {
+func setupActuator(router gin.IRouter, cfg ActuatorConfig, hr health.Registry, m *metrics.Metrics, appName, mode string, isShuttingDown func() bool) {
 	actuator := router.Group(cfg.Path)
 
 	healthPath := defaultIfEmpty(cfg.HealthPath, "/health")
@@ -219,6 +249,11 @@ func setupActuator(router gin.IRouter, cfg ActuatorConfig, hr health.Registry, a
 			"mode": mode,
 		})
 	})
+
+	if m != nil {
+		promPath := defaultIfEmpty(cfg.PrometheusPath, "/prometheus")
+		actuator.GET(promPath, gin.WrapH(m.HTTPHandler()))
+	}
 }
 
 func healthCheckHandler(checkFn func(context.Context) health.Health, isShuttingDown func() bool) gin.HandlerFunc {

@@ -23,7 +23,7 @@
 
 ## 🚀 Quickstart: Run the Full Example App (1 Minute)
 
-The fastest way to see the SDK in action is the complete runnable application in **[`examples/`](examples/)**:
+The fastest way to see the SDK in action is the complete runnable application in **[`examples/`](examples/user-service/)**:
 
 ```bash
 # 1. Start infrastructure (Postgres, Redis, Kafka, MinIO)
@@ -40,7 +40,7 @@ go run .
 
 *HTTP server starts on `:8001` and gRPC on `:8081`.*
 
-👉 **See [`examples/README.md`](examples/README.md)** for the complete end-to-end walkthrough of login, gRPC calls, Redis sessions, and Kafka event delivery.
+👉 **See [`examples/README.md`](examples/user-service/README.md)** for the complete end-to-end walkthrough of login, gRPC calls, Redis sessions, and Kafka event delivery.
 
 ---
 
@@ -68,7 +68,7 @@ All business modules in the SDK follow **Hexagonal Architecture (Ports & Adapter
 2. **Decentralized Registration**: Modules self-register their own HTTP routes, gRPC services, and Kafka subscribers into Fx groups (`httpserver.AsRouteRegistrar`, `grpcserver.AsGRPCServiceRegistrar`, `consumer.AsTopicSubscriber`).
 3. **Accept Interfaces, Return Structs**: Outbound network adapters in `integration/` return concrete structs and satisfy module `port/` interfaces via `fx.As`.
 
-👉 **See [`examples/modules/README.md`](examples/modules/README.md)** for a 5-minute recipe to build and wire a new business module.
+👉 **See [`examples/modules/README.md`](examples/user-service/modules/README.md)** for a 5-minute recipe to build and wire a new business module.
 
 ---
 
@@ -105,7 +105,7 @@ make check
 
 ## 📚 Further Reading
 
-- [Examples Reference Guide](examples/README.md) — Comprehensive guide to the runnable example application.
-- [Creating Business Modules](examples/modules/README.md) — Step-by-step recipe for building new modules.
+- [Examples Reference Guide](examples/user-service/README.md) — Comprehensive guide to the runnable example application.
+- [Creating Business Modules](examples/user-service/modules/README.md) — Step-by-step recipe for building new modules.
 - [Release & Tagging Guide](.instructions/release.md) — Monorepo SemVer tagging and consumption instructions for maintainers.
 - [Architecture & Coding Instructions](.instructions/) — Detailed coding standards and guidelines for contributors.

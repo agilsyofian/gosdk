@@ -5,6 +5,7 @@ import (
 
 	"github.com/agilsyofian/gosdk/core/observability/health"
 	"github.com/agilsyofian/gosdk/core/observability/logger"
+	"github.com/agilsyofian/gosdk/core/observability/metrics"
 	"github.com/agilsyofian/gosdk/core/observability/tracing"
 )
 
@@ -12,16 +13,18 @@ import (
 type Config struct {
 	Logger  logger.Config  `mapstructure:"logger"`
 	Tracing tracing.Config `mapstructure:"tracing"`
+	Metrics metrics.Config `mapstructure:"metrics"`
 }
 
-// Observability bundles initialized logger, tracing, and health components.
+// Observability bundles initialized logger, tracing, health, and metrics components.
 type Observability struct {
 	Logger  logger.Logger
 	Tracing *tracing.Tracing
 	Health  health.Registry
+	Metrics *metrics.Metrics
 }
 
-// Init initializes the core observability stack (Logger, Tracing, Health registry).
+// Init initializes the core observability stack (Logger, Tracing, Health registry, Metrics).
 func Init(cfg Config, appName, appVersion string) (*Observability, error) {
 	log := logger.NewZerologLogger(cfg.Logger)
 
@@ -30,10 +33,16 @@ func Init(cfg Config, appName, appVersion string) (*Observability, error) {
 		return nil, err
 	}
 
+	if cfg.Metrics.Namespace == "" {
+		cfg.Metrics.Namespace = appName
+	}
+	m := metrics.New(cfg.Metrics)
+
 	return &Observability{
 		Logger:  log,
 		Tracing: tracer,
 		Health:  health.NewRegistry(),
+		Metrics: m,
 	}, nil
 }
 

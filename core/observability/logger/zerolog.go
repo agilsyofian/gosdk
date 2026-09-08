@@ -51,24 +51,10 @@ func NewZerologLogger(config Config) Logger {
 		output = os.Stderr
 
 	case "file":
-		if dir := filepath.Dir(config.LogDir); dir != "" && dir != "." {
-			_ = os.MkdirAll(dir, 0755)
-		}
-		file, err := os.OpenFile(config.LogDir, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			panic(err)
-		}
-		output = file
+		output = openLogFile(config.LogDir)
 
 	case "both":
-		if dir := filepath.Dir(config.LogDir); dir != "" && dir != "." {
-			_ = os.MkdirAll(dir, 0755)
-		}
-		file, err := os.OpenFile(config.LogDir, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			panic(err)
-		}
-		output = io.MultiWriter(os.Stdout, file)
+		output = io.MultiWriter(os.Stdout, openLogFile(config.LogDir))
 
 	default:
 		panic(fmt.Sprintf("invalid log output: %s", config.Output))
@@ -126,54 +112,73 @@ func (z *ZerologLogger) applyFields(ctx context.Context, event *zerolog.Event, p
 }
 
 func (z *ZerologLogger) applyTracingFields(ctx context.Context, event *zerolog.Event, payload LogPayload) {
-	traceIDVal := payload.TraceId
-	if traceIDVal == "" && ctx != nil {
-		traceIDVal = tracing.TraceID(ctx)
-		if traceIDVal == "" {
-			if span := trace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
-				traceIDVal = span.SpanContext().TraceID().String()
-			}
-		}
-		if traceIDVal == "" {
-			traceIDVal = traceID(ctx)
-		}
-	}
-	if traceIDVal != "" {
-		event.Str("trace_id", traceIDVal)
+	if tid := resolveTraceID(ctx, payload.TraceId); tid != "" {
+		event.Str("trace_id", tid)
 	}
 
-	sessionIDVal := payload.SessionId
-	if sessionIDVal == "" && ctx != nil {
-		sessionIDVal = tracing.SessionID(ctx)
-		if sessionIDVal == "" {
-			sessionIDVal = sessionID(ctx)
-		}
-	}
-	if sessionIDVal != "" {
-		event.Str("session_id", sessionIDVal)
+	if sid := resolveSessionID(ctx, payload.SessionId); sid != "" {
+		event.Str("session_id", sid)
 	}
 
-	spanIDVal := payload.SpanId
-	if (spanIDVal == "" || spanIDVal == "0000000000000000") && ctx != nil {
-		if span := trace.SpanFromContext(ctx); span.SpanContext().HasSpanID() {
-			spanIDVal = span.SpanContext().SpanID().String()
+	if spid := resolveSpanID(ctx, payload.SpanId); spid != "" {
+		event.Str("span_id", spid)
+	}
+}
+
+func resolveTraceID(ctx context.Context, initial string) string {
+	if initial != "" || ctx == nil {
+		return initial
+	}
+	if tid := tracing.TraceID(ctx); tid != "" {
+		return tid
+	}
+	if span := trace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
+		return span.SpanContext().TraceID().String()
+	}
+	return traceID(ctx)
+}
+
+func resolveSessionID(ctx context.Context, initial string) string {
+	if initial != "" || ctx == nil {
+		return initial
+	}
+	if sid := tracing.SessionID(ctx); sid != "" {
+		return sid
+	}
+	return sessionID(ctx)
+}
+
+func resolveSpanID(ctx context.Context, initial string) string {
+	if initial != "" && initial != "0000000000000000" {
+		return initial
+	}
+	if ctx == nil {
+		return ""
+	}
+	if span := trace.SpanFromContext(ctx); span.SpanContext().HasSpanID() {
+		sid := span.SpanContext().SpanID().String()
+		if sid != "0000000000000000" {
+			return sid
 		}
 	}
-	if spanIDVal != "" && spanIDVal != "0000000000000000" {
-		event.Str("span_id", spanIDVal)
-	}
+	return ""
 }
 
 func (z *ZerologLogger) applyTransportFields(event *zerolog.Event, payload LogPayload) {
 	if payload.IpAddress != "" {
 		event.Str("ip_address", payload.IpAddress)
 	}
-	if payload.Type != "" {
-		event.Str("type", payload.Type)
+	typeVal := payload.Type
+	if typeVal == "" {
+		typeVal = "CONSOLE"
 	}
-	if payload.Method != "" {
-		event.Str("method", payload.Method)
+	event.Str("type", typeVal)
+
+	methodVal := payload.Method
+	if methodVal == "" {
+		methodVal = "CONSOLE"
 	}
+	event.Str("method", methodVal)
 	if payload.Path != "" {
 		event.Str("path", payload.Path)
 	}
@@ -306,30 +311,49 @@ func processSlice(s []any, filterParams []string, maxLength int) {
 	}
 }
 
+func openLogFile(logDir string) *os.File {
+	if dir := filepath.Dir(logDir); dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
+	}
+	file, err := os.OpenFile(logDir, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return file
+}
+
 func formatValue(val any, filterParams []string, maxLength int) any {
 	switch sv := val.(type) {
 	case string:
-		trimmed := strings.TrimSpace(sv)
-		if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
-			(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
-			var nested any
-			if err := json.Unmarshal([]byte(trimmed), &nested); err == nil {
-				processValue(nested, filterParams, maxLength)
-				if b, err := json.Marshal(nested); err == nil {
-					return string(b)
-				}
-			}
-		}
-		if len(sv) > maxLength {
-			return sv[:maxLength] + "..."
-		}
-		return sv
+		return formatStringValue(sv, filterParams, maxLength)
 	case map[string]any, []any:
 		processValue(sv, filterParams, maxLength)
 		return sv
 	default:
 		return val
 	}
+}
+
+func formatStringValue(s string, filterParams []string, maxLength int) string {
+	trimmed := strings.TrimSpace(s)
+	if isJSONString(trimmed) {
+		var nested any
+		if err := json.Unmarshal([]byte(trimmed), &nested); err == nil {
+			processValue(nested, filterParams, maxLength)
+			if b, err := json.Marshal(nested); err == nil {
+				return string(b)
+			}
+		}
+	}
+	if len(s) > maxLength {
+		return s[:maxLength] + "..."
+	}
+	return s
+}
+
+func isJSONString(s string) bool {
+	return (strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}")) ||
+		(strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]"))
 }
 
 func shouldFilter(key string, filterParams []string) bool {

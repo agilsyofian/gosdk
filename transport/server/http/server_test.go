@@ -113,6 +113,46 @@ func TestServer_Actuator_NilHealthRegistryFallback(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestServer_Actuator_PrometheusMetrics(t *testing.T) {
+	l := logger.Nop()
+
+	cfg := httpServer.Config{
+		Addr: ":0",
+		Mode: "test",
+		Actuator: httpServer.ActuatorConfig{
+			Enabled:        true,
+			Path:           "/actuator",
+			PrometheusPath: "/prometheus",
+		},
+	}
+
+	s := httpServer.NewServer("metric-app", l, cfg, nil, nil)
+	assert.NotNil(t, s.Metrics())
+
+	// Register a dummy route to generate a metric
+	s.GET("/orders/:id", func(c *gin.Context) {
+		c.String(http.StatusOK, "order "+c.Param("id"))
+	})
+
+	// 1. Call business endpoint
+	wOrder := httptest.NewRecorder()
+	reqOrder, _ := http.NewRequest(http.MethodGet, "/orders/456", nil)
+	s.ServeHTTP(wOrder, reqOrder)
+	assert.Equal(t, http.StatusOK, wOrder.Code)
+
+	// 2. Call /actuator/prometheus
+	wProm := httptest.NewRecorder()
+	reqProm, _ := http.NewRequest(http.MethodGet, "/actuator/prometheus", nil)
+	s.ServeHTTP(wProm, reqProm)
+	assert.Equal(t, http.StatusOK, wProm.Code)
+
+	output := wProm.Body.String()
+	assert.Contains(t, output, `metric_app_http_requests_total{method="GET",path="/orders/:id",status="200"} 1`)
+	assert.NotContains(t, output, `/orders/456`)
+	// Actuator itself must be excluded from http_requests_total
+	assert.NotContains(t, output, `path="/actuator/prometheus"`)
+}
+
 func TestServer_BasePath(t *testing.T) {
 	l := logger.Nop()
 

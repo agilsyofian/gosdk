@@ -1,0 +1,41 @@
+syntax = "proto3";
+package user;
+option go_package = "./proto/user";
+
+service ServiceUser {
+  rpc GetUser(Request) returns (Response);
+}
+
+message Request {
+  string username = 1;
+  string deviceId = 2;
+}
+
+message Response {
+  // user_profiles
+  string userId = 1;
+  string status = 2;
+  string email = 3;
+  string phoneNumber = 4;
+  string fullName = 5;
+  string displayName = 6;
+  string avatarUrl = 7;
+  string locale = 8;
+  string timezone = 9;
+
+  // user_auths
+  string subject = 10;
+  string passwordHash = 11;
+  bool biometricEnabled = 12;
+  string biometricHash = 13;
+
+  // user_roles
+  repeated string roles = 14;
+  repeated string permissions = 15;
+
+  // user_devices
+  string devicesIdentifier = 16;
+  string platform = 17;
+  string deviceName = 18;
+  string pushToken = 19;
+}
