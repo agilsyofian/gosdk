@@ -59,7 +59,7 @@ func (a *Authenticator) Type() security.CredentialType {
 }
 
 // Authenticate implements core.Authenticator.
-func (a *Authenticator) Authenticate(_ context.Context, credential security.Credential) (*security.AuthenticationResult, error) {
+func (a *Authenticator) Authenticate(ctx context.Context, credential security.Credential) (*security.AuthenticationResult, error) {
 	if credential.Type != security.CredentialBearer {
 		return nil, fmt.Errorf("%w: %s", security.ErrUnsupportedCredential, credential.Type)
 	}
@@ -67,7 +67,7 @@ func (a *Authenticator) Authenticate(_ context.Context, credential security.Cred
 		return nil, fmt.Errorf("%w", security.ErrNoCredential)
 	}
 
-	claims, err := parseAndVerify(credential.Value, verifyConfig{
+	claims, err := parseAndVerify(ctx, credential.Value, verifyConfig{
 		JWKS:     a.jwks,
 		Issuer:   a.cfg.Issuer,
 		Audience: a.cfg.Audience,

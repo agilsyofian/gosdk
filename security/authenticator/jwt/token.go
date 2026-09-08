@@ -84,7 +84,7 @@ var (
 // Signature validation always happens before any claim is trusted --
 // callers must not read Subject/SessionID/etc from an unverified
 // token.
-func parseAndVerify(token string, cfg verifyConfig) (*Claims, error) {
+func parseAndVerify(ctx context.Context, token string, cfg verifyConfig) (*Claims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return nil, errMalformedToken
@@ -115,7 +115,11 @@ func parseAndVerify(token string, cfg verifyConfig) (*Claims, error) {
 		return nil, errors.New("jwt: JWKS manager not configured")
 	}
 
-	pubKey, err := cfg.JWKS.GetKey(context.TODO(), header.Kid)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	pubKey, err := cfg.JWKS.GetKey(ctx, header.Kid)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errBadSignature, err)
 	}

@@ -28,9 +28,7 @@ func New(logger logger.Logger) INotificationService {
 // call; the signature and its caller (handler/messaging.EventUser)
 // stay the same.
 func (s *NotificationService) PushFCM(ctx context.Context, userID, eventType string) error {
-	s.logger.Info(ctx, "notification: push simulated", logger.LogPayload{
-		Type: "notification.push",
-	}.WithMetadata("userId", userID).WithMetadata("eventType", eventType))
+	s.logger.Info(ctx, "notification: push simulated", logger.LogPayload{}.WithMetadata("userId", userID).WithMetadata("eventType", eventType))
 
 	return nil
 }
