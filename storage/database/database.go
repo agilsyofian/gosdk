@@ -11,6 +11,13 @@ type Transactor interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
+// Row is the contract for a single row query result.
+// Both standard *sql.Row and custom traced row implementations satisfy this contract.
+type Row interface {
+	Scan(dest ...any) error
+	Err() error
+}
+
 // Database is the main contract that every implementation must satisfy
 // (Oracle, PostgreSQL, MySQL, etc). This way, business code only depends
 // on this interface, not on a specific driver.
@@ -33,7 +40,7 @@ type Database interface {
 	Query(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 
 	// QueryRow runs a query that returns a single row.
-	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
+	QueryRow(ctx context.Context, query string, args ...any) Row
 
 	// RunInTx runs fn inside a managed transaction with the given options (or nil for default).
 	// Automatically commits on nil error, and rolls back on error or panic.

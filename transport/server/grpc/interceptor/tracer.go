@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -42,7 +41,7 @@ func TracerStream(appName string) grpc.StreamServerInterceptor {
 func initSpan(ctx context.Context, appName, fullMethod string) (context.Context, trace.Span) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	if len(md) > 0 {
-		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(md))
+		ctx = otel.GetTextMapPropagator().Extract(ctx, &metadataTextMapCarrier{MD: md})
 	}
 
 	traceID := extractTraceID(ctx, md)
@@ -57,6 +56,10 @@ func initSpan(ctx context.Context, appName, fullMethod string) (context.Context,
 		),
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
+
+	if span.SpanContext().HasTraceID() {
+		traceID = span.SpanContext().TraceID().String()
+	}
 
 	newCtx := coreContext.WithAppName(ctx, appName)
 	newCtx = coreContext.WithTraceID(newCtx, traceID)

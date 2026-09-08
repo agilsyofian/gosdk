@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -127,17 +128,76 @@ func (m *DB) Query(ctx context.Context, query string, args ...any) (*sql.Rows, e
 	return rows, err
 }
 
-func (m *DB) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+func (m *DB) QueryRow(ctx context.Context, query string, args ...any) database.Row {
 	start := time.Now()
 	ctx, span := m.startSpan(ctx, "QueryRow", query, args...)
-	defer span.End()
 
-	row := m.db.QueryRowContext(ctx, query, args...)
+	rows, err := m.db.QueryContext(ctx, query, args...)
 
-	// sql.Row doesn't return error until Scan, so we can only log the start
-	m.log(ctx, "QUERYROW", query, start, nil)
+	return &tracedRow{
+		rows:  rows,
+		err:   err,
+		span:  span,
+		start: start,
+		logFn: func(s time.Time, err error) {
+			m.log(ctx, "QUERYROW", query, s, err)
+		},
+	}
+}
 
-	return row
+type tracedRow struct {
+	rows  *sql.Rows
+	err   error
+	span  trace.Span
+	start time.Time
+	logFn func(start time.Time, err error)
+	done  bool
+}
+
+func (r *tracedRow) Scan(dest ...any) error {
+	if r.done {
+		return r.err
+	}
+	r.done = true
+
+	err := r.scan(dest...)
+	r.err = err
+
+	if r.span != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			r.span.RecordError(err)
+			r.span.SetStatus(codes.Error, err.Error())
+		}
+		r.span.End()
+	}
+
+	if r.logFn != nil {
+		r.logFn(r.start, err)
+	}
+
+	return err
+}
+
+func (r *tracedRow) scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	defer r.rows.Close()
+	if !r.rows.Next() {
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	}
+	err := r.rows.Scan(dest...)
+	if err != nil {
+		return err
+	}
+	return r.rows.Close()
+}
+
+func (r *tracedRow) Err() error {
+	return r.err
 }
 
 func (m *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
@@ -177,6 +237,8 @@ func (m *DB) startSpan(ctx context.Context, operation string, query string, args
 			attribute.String("db.statement", query),
 			attribute.String("db.user", m.cfg.User),
 			attribute.String("db.name", m.cfg.DBName),
+			attribute.String("server.address", m.cfg.Host),
+			attribute.Int("server.port", m.cfg.Port),
 		),
 	)
 	return ctx, span
@@ -187,12 +249,22 @@ func (m *DB) log(ctx context.Context, method string, query string, start time.Ti
 		return
 	}
 
+	statusCode := 200
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			statusCode = 404
+		} else {
+			statusCode = 500
+		}
+	}
+
 	payload := logger.LogPayload{
 		Timestamp: start,
 		AppName:   m.appName,
 		Type:      "STORAGE_MYSQL",
 		Method:    method,
 		IpAddress: fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port),
+		Status:    statusCode,
 		TraceId:   coreContext.TraceID(ctx),
 		SpanId:    trace.SpanContextFromContext(ctx).SpanID().String(),
 		SessionId: coreContext.SessionID(ctx),
@@ -201,10 +273,13 @@ func (m *DB) log(ctx context.Context, method string, query string, start time.Ti
 		Duration:  time.Since(start).Milliseconds(),
 	}
 
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		payload.Error = err.Error()
 		m.logger.Error(ctx, fmt.Sprintf("MYSQL %s", method), payload)
 	} else {
+		if errors.Is(err, sql.ErrNoRows) {
+			payload.Response = "null"
+		}
 		m.logger.Info(ctx, fmt.Sprintf("MYSQL %s", method), payload)
 	}
 }

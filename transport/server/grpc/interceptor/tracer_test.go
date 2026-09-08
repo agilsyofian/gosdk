@@ -7,6 +7,9 @@ import (
 	coremetadata "github.com/agilsyofian/gosdk/core/metadata"
 	coreContext "github.com/agilsyofian/gosdk/core/observability/tracing"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -100,3 +103,47 @@ func TestTracerStream_Parity(t *testing.T) {
 	assert.Equal(t, "stream-trace-999", meta.TraceID)
 	assert.Equal(t, "stream-session-888", meta.SessionID)
 }
+
+func TestTracerInterceptor_TraceparentPropagation(t *testing.T) {
+	// Ensure composite TextMapPropagator with TraceContext is active
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	interceptor := Tracer("test-app")
+
+	const (
+		expectedTraceID = "4bf92f3577b34da6a3ce929d0e0e4736"
+		expectedSpanID  = "00f067aa0ba902b7"
+	)
+	md := metadata.Pairs(
+		"traceparent", "00-"+expectedTraceID+"-"+expectedSpanID+"-01",
+		MetadataSessionID, "sess-123",
+	)
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	meta := &coremetadata.Metadata{}
+	ctx = coremetadata.WithContext(ctx, meta)
+
+	var recordedTraceID string
+	var spanTraceID string
+
+	handler := func(handlerCtx context.Context, req any) (any, error) {
+		recordedTraceID = coreContext.TraceID(handlerCtx)
+		span := trace.SpanFromContext(handlerCtx)
+		if span.SpanContext().HasTraceID() {
+			spanTraceID = span.SpanContext().TraceID().String()
+		}
+		return "ok", nil
+	}
+
+	info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/TestMethod"}
+	resp, err := interceptor(ctx, nil, info, handler)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", resp)
+	assert.Equal(t, expectedTraceID, recordedTraceID)
+	assert.Equal(t, expectedTraceID, spanTraceID)
+	assert.Equal(t, expectedTraceID, meta.TraceID)
+}
+
