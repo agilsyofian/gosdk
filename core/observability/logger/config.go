@@ -5,6 +5,7 @@ import (
 )
 
 type Config struct {
+	AppName             string        `mapstructure:"app_name"`
 	Output              string        `mapstructure:"output" validate:"required"`
 	LogDir              string        `mapstructure:"log_dir"` // stdout, stderr, file
 	LogLevel            zerolog.Level `mapstructure:"log_level"`

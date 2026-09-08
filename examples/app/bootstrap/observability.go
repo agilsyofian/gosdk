@@ -31,7 +31,11 @@ var Observability = fx.Module("observability",
 
 		// Logger
 		func(cfg config.AppConfig) logger.Config {
-			return cfg.Observability.Logger
+			lCfg := cfg.Observability.Logger
+			if lCfg.AppName == "" {
+				lCfg.AppName = cfg.AppName
+			}
+			return lCfg
 		},
 		logger.NewZerologLogger,
 

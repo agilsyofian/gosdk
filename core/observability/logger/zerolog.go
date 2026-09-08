@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ var _ Logger = (*ZerologLogger)(nil)
 // ZerologLogger is an implementation of Logger using rs/zerolog.
 type ZerologLogger struct {
 	logger       zerolog.Logger
+	appName      string
 	filterParams []string
 	maxLength    int
 }
@@ -48,11 +50,24 @@ func NewZerologLogger(config Config) Logger {
 		output = os.Stderr
 
 	case "file":
+		if dir := filepath.Dir(config.LogDir); dir != "" && dir != "." {
+			_ = os.MkdirAll(dir, 0755)
+		}
 		file, err := os.OpenFile(config.LogDir, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			panic(err)
 		}
 		output = file
+
+	case "both":
+		if dir := filepath.Dir(config.LogDir); dir != "" && dir != "." {
+			_ = os.MkdirAll(dir, 0755)
+		}
+		file, err := os.OpenFile(config.LogDir, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err)
+		}
+		output = io.MultiWriter(os.Stdout, file)
 
 	default:
 		panic(fmt.Sprintf("invalid log output: %s", config.Output))
@@ -66,6 +81,7 @@ func NewZerologLogger(config Config) Logger {
 
 	return &ZerologLogger{
 		logger:       l,
+		appName:      config.AppName,
 		filterParams: config.FilterParams,
 		maxLength:    config.MaxLengthParamValue,
 	}
@@ -105,7 +121,7 @@ func (z *ZerologLogger) applyFields(ctx context.Context, event *zerolog.Event, p
 	z.applyTracingFields(ctx, event, payload)
 	z.applyTransportFields(event, payload)
 	z.applyDataFields(event, payload)
-	z.applyAppFields(event, payload)
+	z.applyAppFields(ctx, event, payload)
 }
 
 func (z *ZerologLogger) applyTracingFields(ctx context.Context, event *zerolog.Event, payload LogPayload) {
@@ -167,9 +183,17 @@ func (z *ZerologLogger) applyDataFields(event *zerolog.Event, payload LogPayload
 	}
 }
 
-func (z *ZerologLogger) applyAppFields(event *zerolog.Event, payload LogPayload) {
+func (z *ZerologLogger) applyAppFields(ctx context.Context, event *zerolog.Event, payload LogPayload) {
+	if z.appName != "" {
+		event.Str("app_name", z.appName)
+		return
+	}
 	if payload.AppName != "" {
 		event.Str("app_name", payload.AppName)
+		return
+	}
+	if app := appName(ctx); app != "" {
+		event.Str("app_name", app)
 	}
 }
 
@@ -293,6 +317,21 @@ const (
 	traceIDKey   contextKey = "trace_id"   // Long-lived session
 	sessionIDKey contextKey = "session_id" // Single lifecycle
 )
+
+func appName(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if name, ok := ctx.Value(appNameKey).(string); ok {
+		return name
+	}
+	return ""
+}
+
+// WithAppName returns a copy of parent context in which app_name is set.
+func WithAppName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, appNameKey, name)
+}
 
 func traceID(ctx context.Context) string {
 	if id, ok := ctx.Value(traceIDKey).(string); ok {

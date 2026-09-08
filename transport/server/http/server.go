@@ -29,6 +29,7 @@ type Server struct {
 	gin.IRouter
 	httpServer         *http.Server
 	logger             logger.Logger
+	tracing            *tracing.Tracing
 	engine             *gin.Engine
 	baseRouter         gin.IRouter
 	basePath           string
@@ -79,8 +80,12 @@ func NewServer(
 	)
 
 	// 3. Tracer Middleware (Extract OpenTelemetry trace context)
+	var otelOpts []otelgin.Option
+	if t != nil && t.TracerProvider() != nil {
+		otelOpts = append(otelOpts, otelgin.WithTracerProvider(t.TracerProvider()))
+	}
 	engine.Use(
-		otelgin.Middleware(appName),
+		otelgin.Middleware(appName, otelOpts...),
 		middleware.Tracer(appName),
 	)
 
@@ -148,6 +153,7 @@ func NewServer(
 		IRouter:         baseRouter,
 		httpServer:      httpServer,
 		logger:          l,
+		tracing:         t,
 		engine:          engine,
 		baseRouter:      baseRouter,
 		basePath:        basePath,
@@ -159,6 +165,11 @@ func NewServer(
 	}
 
 	return s
+}
+
+// Tracing returns the tracing instance associated with this server.
+func (s *Server) Tracing() *tracing.Tracing {
+	return s.tracing
 }
 
 func normalizeBasePath(raw string) string {

@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Tracing struct {
@@ -58,6 +59,14 @@ func NewTracing(cfg Config, appName, appVersion string) (*Tracing, error) {
 	))
 
 	return &Tracing{tp: tp}, nil
+}
+
+// TracerProvider returns the underlying OpenTelemetry TracerProvider.
+func (t *Tracing) TracerProvider() trace.TracerProvider {
+	if t == nil || t.tp == nil {
+		return nil
+	}
+	return t.tp
 }
 
 func (t *Tracing) Shutdown(ctx context.Context) error {

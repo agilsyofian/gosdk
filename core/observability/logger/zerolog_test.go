@@ -1,9 +1,13 @@
 package logger
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/rs/zerolog"
 )
 
 func TestFilterSensitiveData(t *testing.T) {
@@ -130,5 +134,30 @@ func TestFilterSensitiveData(t *testing.T) {
 				t.Errorf("FilterSensitiveData() = %s, want %s", string(gotJSON), string(expectedJSON))
 			}
 		})
+	}
+}
+
+func TestZerologLogger_AppNameOverride(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := DefaultConfig()
+	cfg.AppName = "my-awesome-app"
+	
+	l := &ZerologLogger{
+		logger:  zerolog.New(&buf).With().Timestamp().Logger(),
+		appName: cfg.AppName,
+	}
+
+	// Case 1: Payload with different app name should be overridden by primary logger config
+	l.Info(context.Background(), "test message", LogPayload{
+		AppName: "sub-module-name",
+	})
+
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("failed to unmarshal log: %v", err)
+	}
+
+	if entry["app_name"] != "my-awesome-app" {
+		t.Errorf("expected app_name 'my-awesome-app', got '%v'", entry["app_name"])
 	}
 }
