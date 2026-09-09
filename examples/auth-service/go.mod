@@ -2,7 +2,7 @@ module auth-service
 
 go 1.26.8
 
-tool github.com/agilsyofian/utils/mapgen
+tool github.com/agilsyofian/gosdk/tools/mapgen
 
 replace (
 	github.com/agilsyofian/gosdk/core/errors => ./../../core/errors

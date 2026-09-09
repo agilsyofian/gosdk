@@ -4,11 +4,11 @@ package grpchandler
 
 import (
 	"fmt"
-
-	"github.com/google/uuid"
 	"user-service/app/shared/converters"
 	"user-service/modules/user/domain"
 	"user-service/proto/user"
+
+	"github.com/google/uuid"
 )
 
 // UserToResponse maps domain.User to *user.Response.
@@ -43,7 +43,7 @@ func UserFromResponse(src *user.Response) (domain.User, error) {
 	}
 	v1, err0 := uuid.Parse(src.GetUserId())
 	if err0 != nil {
-		return domain.User{}, fmt.Errorf("map model.User.UserId: %w", err0)
+		return domain.User{}, fmt.Errorf("map domain.User.UserId: %w", err0)
 	}
 	return domain.User{
 		UserId:            v1,

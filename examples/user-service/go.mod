@@ -2,29 +2,7 @@ module user-service
 
 go 1.26.8
 
-tool github.com/agilsyofian/utils/mapgen
-
-replace (
-	github.com/agilsyofian/gosdk/core/errors => ./../../core/errors
-	github.com/agilsyofian/gosdk/core/metadata => ./../../core/metadata
-	github.com/agilsyofian/gosdk/core/observability => ./../../core/observability
-	github.com/agilsyofian/gosdk/core/resilience => ./../../core/resilience
-	github.com/agilsyofian/gosdk/security => ./../../security
-	github.com/agilsyofian/gosdk/security/authenticator/jwt => ./../../security/authenticator/jwt
-	github.com/agilsyofian/gosdk/security/jwks => ./../../security/jwks
-	github.com/agilsyofian/gosdk/security/session/redis => ./../../security/session/redis
-	github.com/agilsyofian/gosdk/storage/cache => ./../../storage/cache
-	github.com/agilsyofian/gosdk/storage/cache/redis => ./../../storage/cache/redis
-	github.com/agilsyofian/gosdk/storage/database => ./../../storage/database
-	github.com/agilsyofian/gosdk/storage/database/postgres => ./../../storage/database/postgres
-	github.com/agilsyofian/gosdk/storage/objectstorage => ./../../storage/objectstorage
-	github.com/agilsyofian/gosdk/storage/objectstorage/s3 => ./../../storage/objectstorage/s3
-	github.com/agilsyofian/gosdk/tools/mapgen => ./../../tools/mapgen
-	github.com/agilsyofian/gosdk/transport/client/grpc => ./../../transport/client/grpc
-	github.com/agilsyofian/gosdk/transport/client/http => ./../../transport/client/http
-	github.com/agilsyofian/gosdk/transport/server/grpc => ./../../transport/server/grpc
-	github.com/agilsyofian/gosdk/transport/server/http => ./../../transport/server/http
-)
+tool github.com/agilsyofian/gosdk/tools/mapgen
 
 require (
 	github.com/agilsyofian/gosdk/core/errors v1.0.0

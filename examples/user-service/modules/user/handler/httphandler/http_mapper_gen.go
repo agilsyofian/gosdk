@@ -6,7 +6,7 @@ import (
 	"user-service/modules/user/domain"
 )
 
-// UserToUserDetail maps domain.User to http.UserDetail.
+// UserToUserDetail maps domain.User to httphandler.UserDetail.
 func UserToUserDetail(src domain.User) UserDetail {
 	return UserDetail{
 		UserId:            src.UserId,
@@ -29,7 +29,7 @@ func UserToUserDetail(src domain.User) UserDetail {
 	}
 }
 
-// UserFromUserDetail maps http.UserDetail to domain.User.
+// UserFromUserDetail maps httphandler.UserDetail to domain.User.
 func UserFromUserDetail(src UserDetail) domain.User {
 	return domain.User{
 		UserId:            src.UserId,
