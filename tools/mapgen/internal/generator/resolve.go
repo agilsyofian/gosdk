@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
 )
 
 // pairSpec is a type pair to generate mappers for, with types fully

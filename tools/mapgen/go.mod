@@ -1,4 +1,4 @@
-module github.com/agilsyofian/gosdk/utils/mapgen
+module github.com/agilsyofian/gosdk/tools/mapgen
 
 go 1.26.8
 

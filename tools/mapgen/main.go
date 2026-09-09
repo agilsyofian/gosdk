@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
 func main() {

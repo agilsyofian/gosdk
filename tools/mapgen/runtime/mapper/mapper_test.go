@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+	"github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 )
 
 func TestRegisterAndConvert(t *testing.T) {

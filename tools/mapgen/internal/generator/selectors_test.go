@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
 func writeFile(t *testing.T, dir, name, content string) {

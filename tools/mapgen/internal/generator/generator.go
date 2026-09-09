@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
 )
 
 // Run executes one mapgen invocation: it loads the involved packages in

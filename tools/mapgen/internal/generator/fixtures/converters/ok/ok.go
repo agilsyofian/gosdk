@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+	"github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 )
 
 // UserID is a sample domain identifier.

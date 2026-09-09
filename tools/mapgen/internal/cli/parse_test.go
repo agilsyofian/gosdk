@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
 )
 
 func TestParse(t *testing.T) {

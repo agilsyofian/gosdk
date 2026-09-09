@@ -3,7 +3,7 @@ package ok
 import (
 	"time"
 
-	m "github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+	m "github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 )
 
 // registerMore exercises registration outside init through an aliased

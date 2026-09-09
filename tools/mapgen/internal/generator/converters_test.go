@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
-const fixturePrefix = "github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/"
+const fixturePrefix = "github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/"
 
 var loadFixtures = sync.OnceValues(func() (map[string]*packages.Package, error) {
 	cfg := &packages.Config{

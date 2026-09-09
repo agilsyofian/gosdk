@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/model"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/protolike"
-	"github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/model"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/protolike"
+	"github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 )
 
 func init() {

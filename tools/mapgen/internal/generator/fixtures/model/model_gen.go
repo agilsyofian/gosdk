@@ -3,7 +3,7 @@
 package model
 
 import (
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/protolike"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/protolike"
 )
 
 // AddressToProtolike maps model.Address to *protolike.Address.

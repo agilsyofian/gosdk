@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
 // e2eModule synthesizes a temp module that depends on mapgen through a
@@ -31,9 +31,9 @@ func e2eModule(t *testing.T) string {
 
 go 1.25
 
-require github.com/agilsyofian/gosdk/utils/mapgen v0.0.0
+require github.com/agilsyofian/gosdk/tools/mapgen v0.0.0
 
-replace github.com/agilsyofian/gosdk/utils/mapgen => `+root+`
+replace github.com/agilsyofian/gosdk/tools/mapgen => `+root+`
 `)
 	writeFile(t, filepath.Join(dir, "model"), "model.go", `package model
 
@@ -80,7 +80,7 @@ func (x *Employee) GetAge() int32 {
 import (
 	"strconv"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+	"github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
 
 	"example.com/app/model"
 )

@@ -12,8 +12,9 @@ import (
 
 // mapperPkgPath is the import path of the registration API scanned for
 // converter declarations.
-const mapperPkgPath = "github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
-const legacyMapperPkgPath = "github.com/agilsyofian/utils/mapgen/runtime/mapper"
+const mapperPkgPath = "github.com/agilsyofian/gosdk/tools/mapgen/runtime/mapper"
+const legacyMapperPkgPath = "github.com/agilsyofian/gosdk/utils/mapgen/runtime/mapper"
+const oldLegacyMapperPkgPath = "github.com/agilsyofian/utils/mapgen/runtime/mapper"
 
 // converter is a conversion function registered via mapper.Register or
 // mapper.RegisterE.
@@ -96,7 +97,7 @@ func registeredConverter(pkg *packages.Package, call *ast.CallExpr, outputPkgPat
 		return converter{}, false, nil
 	}
 	callee, ok := pkg.TypesInfo.Uses[ident].(*types.Func)
-	if !ok || callee.Pkg() == nil || (callee.Pkg().Path() != mapperPkgPath && callee.Pkg().Path() != legacyMapperPkgPath) {
+	if !ok || callee.Pkg() == nil || (callee.Pkg().Path() != mapperPkgPath && callee.Pkg().Path() != legacyMapperPkgPath && callee.Pkg().Path() != oldLegacyMapperPkgPath) {
 		return converter{}, false, nil
 	}
 	if callee.Name() != "Register" && callee.Name() != "RegisterE" {

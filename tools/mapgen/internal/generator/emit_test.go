@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

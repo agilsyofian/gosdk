@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/cli"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/cli"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator"
 )
 
 func namedType(t *testing.T, pkg *packages.Package, name string) types.Type {

@@ -51,7 +51,7 @@ See [examples](./examples) for a complete, runnable module.
 Requires Go 1.25+.
 
 ```sh
-go get -tool github.com/agilsyofian/utils/mapgen@latest
+go get -tool github.com/agilsyofian/gosdk/tools/mapgen@latest
 ```
 
 ## How it works

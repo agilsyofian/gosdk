@@ -5,9 +5,9 @@ package output
 import (
 	"fmt"
 
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/conv"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/model"
-	"github.com/agilsyofian/gosdk/utils/mapgen/internal/generator/fixtures/protolike"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/conv"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/model"
+	"github.com/agilsyofian/gosdk/tools/mapgen/internal/generator/fixtures/protolike"
 )
 
 // EmployeeToProtolike maps model.Employee to *protolike.Employee.
