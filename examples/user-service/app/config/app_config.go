@@ -60,12 +60,14 @@ type AppConfig struct {
 	} `mapstructure:"client_interceptor"`
 }
 
+type ConsumerConfig struct {
+	Topic           string `mapstructure:"topic"`
+	GroupID         string `mapstructure:"group_id"`
+	Concurrency     int    `mapstructure:"concurrency"`
+	AutoOffsetReset string `mapstructure:"auto_offset_reset"`
+}
+
 type KafkaIntegration struct {
-	Brokers  []string          `mapstructure:"brokers"`
-	Topics   map[string]string `mapstructure:"topics"`
-	Consumer struct {
-		GroupID         string `mapstructure:"group_id"`
-		Concurrency     int    `mapstructure:"concurrency"`
-		AutoOffsetReset string `mapstructure:"auto_offset_reset"`
-	} `mapstructure:"consumer"`
+	Brokers  []string                  `mapstructure:"brokers"`
+	Consumer map[string]ConsumerConfig `mapstructure:"consumer"`
 }

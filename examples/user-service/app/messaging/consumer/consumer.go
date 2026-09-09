@@ -39,7 +39,7 @@ func NewConsumer(deps DependenciesConsumer) (IConsumer, error) {
 			continue
 		}
 
-		c, err := createConsumer(deps, topic)
+		c, err := createConsumer(deps, sub)
 		if err != nil {
 			// Clean up any previously created consumers before failing
 			for _, prev := range subs {
@@ -98,16 +98,31 @@ func (s *Consumer) Stop(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-func createConsumer(deps DependenciesConsumer, topic string) (*kafka.Consumer, error) {
+func createConsumer(deps DependenciesConsumer, sub TopicSubscriber) (*kafka.Consumer, error) {
+	if deps.Client == nil {
+		return nil, fmt.Errorf("kafka client is nil")
+	}
+
+	topic := sub.Topic()
+	groupID := sub.GroupID()
+	if groupID == "" {
+		return nil, fmt.Errorf("group_id is required for topic %q", topic)
+	}
+
 	startOffset := kafkago.FirstOffset
-	if deps.AppConfig.Messaging.Consumer.AutoOffsetReset != "earliest" {
+	if sub.AutoOffsetReset() != "earliest" {
 		startOffset = kafkago.LastOffset
+	}
+
+	concurrency := sub.Concurrency()
+	if concurrency <= 0 {
+		concurrency = 1
 	}
 
 	return deps.Client.Consumer(
 		topic,
-		deps.AppConfig.Messaging.Consumer.GroupID,
-		kafka.WithConcurrency(deps.AppConfig.Messaging.Consumer.Concurrency),
+		groupID,
+		kafka.WithConcurrency(concurrency),
 		kafka.WithStartOffset(startOffset),
 	)
 }

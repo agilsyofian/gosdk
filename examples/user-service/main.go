@@ -1,7 +1,6 @@
 package main
 
 import (
-	"auth-service/module/auth"
 	"user-service/app/bootstrap"
 	"user-service/app/messaging/consumer"
 	"user-service/app/server/grpcserver"
@@ -20,7 +19,7 @@ func main() {
 	fx.New(
 		// Uncomment to silence fx's own startup/shutdown logging (which
 		// constructor ran when, in what order) once you're used to it:
-		fx.NopLogger,
+		//fx.NopLogger,
 
 		// 1. Setup / infrastructure.
 		bootstrap.Config,
@@ -39,7 +38,6 @@ func main() {
 		// 3. Integrations (outbound clients).
 
 		// 4. Business modules — start here.
-		auth.Module,
 		user.Module,
 		storage.Module,
 		notifications.Module,

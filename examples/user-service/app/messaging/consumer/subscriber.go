@@ -8,6 +8,9 @@ import (
 // TopicSubscriber is implemented by any business module that consumes messages from a Kafka topic.
 type TopicSubscriber interface {
 	Topic() string
+	GroupID() string
+	Concurrency() int
+	AutoOffsetReset() string
 	Handler() kafka.Handler
 }
 

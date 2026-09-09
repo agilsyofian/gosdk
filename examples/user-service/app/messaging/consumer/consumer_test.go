@@ -19,6 +19,18 @@ func (d *dummySubscriber) Topic() string {
 	return d.topic
 }
 
+func (d *dummySubscriber) GroupID() string {
+	return "test-group"
+}
+
+func (d *dummySubscriber) Concurrency() int {
+	return 1
+}
+
+func (d *dummySubscriber) AutoOffsetReset() string {
+	return "earliest"
+}
+
 func (d *dummySubscriber) Handler() kafka.Handler {
 	return func(ctx context.Context, msg *kafka.Message) error {
 		return nil

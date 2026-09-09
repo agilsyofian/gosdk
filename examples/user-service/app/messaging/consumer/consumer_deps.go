@@ -1,9 +1,10 @@
 package consumer
 
 import (
+	"user-service/app/config"
+
 	"github.com/agilsyofian/gosdk/messaging/kafka"
 	"go.uber.org/fx"
-	"user-service/app/config"
 )
 
 type DependenciesConsumer struct {

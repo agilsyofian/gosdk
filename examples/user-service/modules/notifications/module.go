@@ -1,10 +1,11 @@
 package notifications
 
 import (
-	"go.uber.org/fx"
 	"user-service/app/messaging/consumer"
 	"user-service/modules/notifications/handler/messaging"
 	"user-service/modules/notifications/service"
+
+	"go.uber.org/fx"
 )
 
 var Module = fx.Module("module-notifications",
