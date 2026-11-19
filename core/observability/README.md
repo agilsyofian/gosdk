@@ -46,13 +46,28 @@ log.Info(ctx, logger.LogPayload{
 ```go
 import "github.com/agilsyofian/gosdk/core/observability/tracing"
 
-tracer, err := tracing.NewTracing(tracing.Config{
+tracer, err := tracing.NewTracingContext(ctx, tracing.Config{
     Enabled:      true,
     Endpoint:     "otel-collector:4317",
     SamplerRatio: 1.0,
+    TLS:          true, // optional; default false keeps a plaintext connection
 }, "my-service", "v1.0.0")
+if err != nil {
+    return err // e.g. a malformed endpoint; tracing is never silently disabled
+}
 defer tracer.Shutdown(context.Background())
 ```
+
+`NewTracing(cfg, name, version)` is the same as `NewTracingContext` with
+`context.Background()`. If the exporter cannot be created, both return an error
+and leave the OpenTelemetry globals untouched.
+
+| Config field   | Key             | Meaning                                                        |
+|----------------|-----------------|----------------------------------------------------------------|
+| `Enabled`      | `enabled`       | Turn tracing on; when false a no-op `Tracing` is returned       |
+| `Endpoint`     | `endpoint`      | OTLP/gRPC collector address                                     |
+| `SamplerRatio` | `sampler_ratio` | Fraction of traces sampled (0.0–1.0)                            |
+| `TLS`          | `use_tls`       | Use TLS (system CA pool, TLS 1.2+) instead of plaintext         |
 
 ### 3. `health` (`core/observability/health`)
 - Kubernetes-ready health check registry managing `liveness`, `readiness`, and `startup` probes.
