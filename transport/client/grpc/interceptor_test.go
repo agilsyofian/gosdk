@@ -140,4 +140,3 @@ func TestClientLogger_Unauthenticated(t *testing.T) {
 	assert.Contains(t, respStr, "Unauthenticated")
 	assert.Contains(t, respStr, "client unauthenticated")
 }
-

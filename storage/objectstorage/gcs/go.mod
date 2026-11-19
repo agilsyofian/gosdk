@@ -1,6 +1,6 @@
 module github.com/agilsyofian/gosdk/storage/objectstorage/gcs
 
-go 1.26.8
+go 1.27.4
 
 require (
 	cloud.google.com/go/storage v1.62.3

@@ -1,15 +1,18 @@
 module github.com/agilsyofian/gosdk/security/authenticator/jwt
 
-go 1.26.8
+go 1.27.4
 
 require (
 	github.com/agilsyofian/gosdk/core/observability v1.0.0
 	github.com/agilsyofian/gosdk/security v1.0.0
 	github.com/agilsyofian/gosdk/security/jwks v1.0.0
+	go.opentelemetry.io/otel v1.46.0
+	go.opentelemetry.io/otel/sdk v1.46.0
 	golang.org/x/sync v0.22.0
 )
 
 require (
+	github.com/agilsyofian/gosdk/core/metadata v1.0.0 // indirect
 	github.com/agilsyofian/gosdk/core/resilience v1.0.0 // indirect
 	github.com/agilsyofian/gosdk/transport/client/http v1.0.0 // indirect
 	github.com/agilsyofian/gosdk/utils v1.0.0 // indirect
@@ -24,11 +27,9 @@ require (
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/sony/gobreaker/v2 v2.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.46.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	golang.org/x/net v0.58.0 // indirect

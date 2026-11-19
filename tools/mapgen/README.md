@@ -48,7 +48,7 @@ See [examples](./examples) for a complete, runnable module.
 
 ## Installation
 
-Requires Go 1.25+.
+Requires Go 1.27+ (the module declares `go 1.27.4`).
 
 ```sh
 go get -tool github.com/agilsyofian/gosdk/tools/mapgen@latest

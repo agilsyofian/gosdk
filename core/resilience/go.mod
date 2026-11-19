@@ -1,6 +1,6 @@
 module github.com/agilsyofian/gosdk/core/resilience
 
-go 1.26.8
+go 1.27.4
 
 require (
 	github.com/sony/gobreaker/v2 v2.4.0

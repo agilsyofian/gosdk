@@ -22,7 +22,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"strconv"
@@ -38,9 +40,10 @@ import (
 
 func main() {
 
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	// .env is optional: it is a local convenience (see .env.example) and is
+	// not committed. Without it, configuration comes from the real environment.
+	if err := godotenv.Load(".env"); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		log.Fatalf("loading .env file: %v", err)
 	}
 
 	if len(os.Args) < 2 {
