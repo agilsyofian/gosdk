@@ -96,7 +96,8 @@ make migrate-force VERSION=20260829210800 STATE=applied
 ```
 
 Use `make help` to see every target. `DB_DIALECT`, `DB_DSN`, and (optionally)
-`MIGRATIONS_DIR` can be provided in `.env` or overridden when calling Make:
+`MIGRATIONS_DIR` can be provided in a local `.env` (copy `.env.example`; `.env`
+is git-ignored and optional) or overridden when calling Make:
 
 ```bash
 DB_DIALECT=postgres DB_DSN='postgres://user:pass@localhost:5432/app?sslmode=disable' make migrate-status

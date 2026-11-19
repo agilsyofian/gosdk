@@ -7,3 +7,5 @@
 # Release automation scripts (maintainer private tools)
 scripts/
 release.sh
+# Local environment files (use .env.example as a template)
+.env
