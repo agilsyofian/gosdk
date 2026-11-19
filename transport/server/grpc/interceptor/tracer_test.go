@@ -146,4 +146,3 @@ func TestTracerInterceptor_TraceparentPropagation(t *testing.T) {
 	assert.Equal(t, expectedTraceID, spanTraceID)
 	assert.Equal(t, expectedTraceID, meta.TraceID)
 }
-

@@ -86,7 +86,7 @@ func (m *mockLogger) Debug(ctx context.Context, msg string, payload logger.LogPa
 func (m *mockLogger) Info(ctx context.Context, msg string, payload logger.LogPayload) {
 	m.lastPayload = payload
 }
-func (m *mockLogger) Warn(ctx context.Context, msg string, payload logger.LogPayload)  {}
+func (m *mockLogger) Warn(ctx context.Context, msg string, payload logger.LogPayload) {}
 func (m *mockLogger) Error(ctx context.Context, msg string, payload logger.LogPayload) {
 	m.lastPayload = payload
 }
@@ -150,4 +150,3 @@ func TestHook_LogStatus_RedisError(t *testing.T) {
 		t.Errorf("expected Error 'dial tcp: connection refused', got %v", mockL.lastPayload.Error)
 	}
 }
-

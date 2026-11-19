@@ -181,4 +181,3 @@ func TestLoggerInterceptor_Unauthenticated_FormatLikeHTTP(t *testing.T) {
 	assert.Contains(t, respStr, "Unauthenticated")
 	assert.Contains(t, respStr, "authentication required")
 }
-
