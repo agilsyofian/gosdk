@@ -1,8 +1,9 @@
 module github.com/agilsyofian/gosdk/transport/server/grpc
 
-go 1.26.8
+go 1.27.4
 
 require (
+	github.com/agilsyofian/gosdk/core/errors v1.0.0
 	github.com/agilsyofian/gosdk/core/metadata v1.0.0
 	github.com/agilsyofian/gosdk/core/observability v1.0.0
 	github.com/agilsyofian/gosdk/security v1.0.0

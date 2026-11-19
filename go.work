@@ -1,0 +1,35 @@
+go 1.27.4
+
+use (
+	./core/errors
+	./core/metadata
+	./core/observability
+	./core/resilience
+	./examples/auth-service
+	./examples/user-service
+	./messaging/kafka
+	./messaging/rabbitmq
+	./security
+	./security/authenticator/jwt
+	./security/jwks
+	./security/session/redis
+	./security/signature
+	./storage/cache
+	./storage/cache/local
+	./storage/cache/redis
+	./storage/database
+	./storage/database/mysql
+	./storage/database/oracle
+	./storage/database/postgres
+	./storage/objectstorage
+	./storage/objectstorage/gcs
+	./storage/objectstorage/s3
+	./tools/dbmigration
+	./tools/mapgen
+	./transport/client/grpc
+	./transport/client/http
+	./transport/idempotency
+	./transport/server/grpc
+	./transport/server/http
+	./utils
+)

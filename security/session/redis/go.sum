@@ -1,0 +1,6 @@
+github.com/agilsyofian/gosdk/core/errors v1.0.0 h1:ZyMZcZ7mVDG851QPj85es6toWlL+puKBNnsD7W7Gxxc=
+github.com/agilsyofian/gosdk/core/errors v1.0.0/go.mod h1:xvzTIW7yrnR16WEVrr5OnAD0/Q6zWKhECopoMSln9d4=
+github.com/agilsyofian/gosdk/security v1.0.0 h1:VvN2B9B26tNOX4iMGJphZuttEMA3KLHvmAGG+UyiWjM=
+github.com/agilsyofian/gosdk/security v1.0.0/go.mod h1:jtCxH1LFHsFEbEnjU1k31UZrgAlSbEQ0sd20a80I+jk=
+github.com/agilsyofian/gosdk/storage/cache v1.0.0 h1:LIM9oAGuyz5wFfqNJ8sKnv9b/X9OJRmPGnHrc04rK48=
+github.com/agilsyofian/gosdk/storage/cache v1.0.0/go.mod h1:1DDbwWTIe4BAM3/VTtEnFeL6GQxaQMSrKTi59Huz5yo=
